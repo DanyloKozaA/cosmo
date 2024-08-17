@@ -1,0 +1,18 @@
+type Mutation{
+    createTransaction(date:String, business: String, price: String, debit: String, credit: String, valueDate: String, balance: String, TitleId: String): Transaction
+}
+
+type Transaction{
+    date: String
+    business: String
+    price: String
+    debit: String
+    credit: String
+    valueDate: String
+    balance: String
+    TitleId: String
+}
+
+type Query{
+    sort(encode:String): String
+}
