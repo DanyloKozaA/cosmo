@@ -13,7 +13,7 @@ import javax.persistence.Id;
 public class TitleList {
  @Id
  @GeneratedValue(strategy = GenerationType.IDENTITY)
- private Long id;
+ private String id;
  private String accountNo;
  private String IBAN;
  private String product;
