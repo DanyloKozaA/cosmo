@@ -1,4 +1,4 @@
-package com.example.roller.service;
+/*package com.example.roller.service;
 import org.springframework.stereotype.Service;
 
 import org.springframework.stereotype.Service;
@@ -23,3 +23,4 @@ public class MessagingService {
         }
     }
 }
+*/

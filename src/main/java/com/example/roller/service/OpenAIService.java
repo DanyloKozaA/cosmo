@@ -1,4 +1,4 @@
-package com.example.roller.service;
+/*package com.example.roller.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,3 +63,4 @@ public class OpenAIService {
         }
     }
 }
+*/

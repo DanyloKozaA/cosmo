@@ -24,7 +24,6 @@ public class TesserConf {
                 .build();
     }
 
-
     public AnalyzeDocumentResult analyzeDocument(String bucketName, String documentName) {
         Document document = new Document().withS3Object(new S3Object().withBucket(bucketName).withName(documentName));
 
@@ -35,23 +34,13 @@ public class TesserConf {
         return textractClient.analyzeDocument(request);
     }
 }
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+
+
+
+
+
+
+
 //        /*String tesseractPath = "G:\\Tesseract-OCR\\tesseract.exe";  // Путь к исполняемому файлу Tesseract
 //        String imagePath = "C:\\Users\\GameOn\\Desktop\\AAA\\image.jpg";  // Путь к изображению
 //        String outputBaseName = "C:\\Users\\GameOn\\Desktop\\AAA\\output";  // Путь к выходному файлу (без расширения)

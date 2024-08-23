@@ -1,4 +1,4 @@
-package com.example.roller.controllers;
+/*package com.example.roller.controllers;
 import com.example.roller.service.OpenAIService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -18,4 +18,4 @@ public class ChatController {
             return "Error: " + e.getMessage();
         }
     }
-}
+}*/

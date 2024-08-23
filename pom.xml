@@ -63,7 +63,17 @@
             <version>1.12.486</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>1.12.546</version>
+        </dependency>
 
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.11</version>
+        </dependency>
 
         <!-- https://mvnrepository.com/artifact/net.sourceforge.tess4j/tess4j -->
         <dependency>
