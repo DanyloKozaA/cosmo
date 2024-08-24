@@ -14,7 +14,8 @@ type Transaction {
 }
 
 type Query {
-    sort(encode: String): String
+    getAllFiles(path: String): String
+
 }
 
 

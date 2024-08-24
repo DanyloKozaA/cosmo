@@ -1,55 +1,77 @@
 package com.example.roller.convertor;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.pdmodel.interactive.form.PDField;
+import org.apache.pdfbox.pdmodel.interactive.form.PDTextField;
+import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+
+@Component
 public class Convertor {
+    private List<File> pdfFilesList = new ArrayList<>();
+    private List<File> imageFilesList = new ArrayList<>();
 
-    public static void convertPDFToJPG(String pdfFilePath, String outputDir) throws IOException {
-        File pdfFile = new File(pdfFilePath);
+    public void extractPagesToSeparatePDFs(String inputPdfPath) throws IOException {
+        File pdfFile = new File(inputPdfPath);
         if (!pdfFile.exists()) {
-            throw new IOException("File not found: " + pdfFilePath);
+            throw new IOException("File not found: " + inputPdfPath);
         }
 
-        // Загружаем PDF-документ
         try (PDDocument document = PDDocument.load(pdfFile)) {
-            PDFRenderer pdfRenderer = new PDFRenderer(document);
-            for (int page = 0; page < document.getNumberOfPages(); ++page) {
-                BufferedImage bim = pdfRenderer.renderImageWithDPI(page, 300); // разрешение 300 DPI
-                String fileName = getUniqueFileName(outputDir, "page", "jpg");
-                ImageIO.write(bim, "jpg", new File(fileName));
+            int totalPages = document.getNumberOfPages();
+            for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                PDPage page = document.getPage(pageIndex);
+                try (PDDocument newDoc = new PDDocument()) {
+                    newDoc.addPage(page);
+                    File newFile = File.createTempFile("page_" + (pageIndex + 1), ".pdf");
+                    newDoc.save(newFile);
+                    pdfFilesList.add(newFile);
+                    System.out.println("Saved page " + (pageIndex + 1) + " to " + newFile.getAbsolutePath());
+                }
             }
         }
     }
 
-    private static String getUniqueFileName(String directory, String baseName, String extension) {
-        String fileName = directory + "/" + baseName + "." + extension;
-        File file = new File(fileName);
-        int count = 1;
-
-        // Если файл с таким именем уже существует, добавляем +1 к имени
-        while (file.exists()) {
-            fileName = directory + "/" + baseName + "(" + count + ")" + "." + extension;
-            file = new File(fileName);
-            count++;
+    public void convertPDFsToImages() throws IOException {
+        for (File pdfFile : pdfFilesList) {
+            try (PDDocument document = PDDocument.load(pdfFile)) {
+                PDFRenderer pdfRenderer = new PDFRenderer(document);
+                int totalPages = document.getNumberOfPages();
+                for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                    try {
+                        BufferedImage image = pdfRenderer.renderImageWithDPI(pageIndex, 300, ImageType.RGB);
+                        File imageFile = File.createTempFile(pdfFile.getName().replace(".pdf", "_page_" + (pageIndex + 1)), ".jpg");
+                        ImageIO.write(image, "jpg", imageFile);
+                        imageFilesList.add(imageFile);
+                        System.out.println("Saved image " + imageFile.getAbsolutePath());
+                    } catch (IOException e) {
+                        System.err.println("Error processing page " + (pageIndex + 1) + " of file " + pdfFile.getName() + ": " + e.getMessage());
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error loading PDF file " + pdfFile.getName() + ": " + e.getMessage());
+            }
         }
-
-        return fileName;
     }
 
-    public static void main(String[] args) {
-        try {
-            String pdfFilePath = "C:/Users/GameOn/Desktop/AAA/output.pdf";  // Укажите путь к вашему PDF файлу
-            String outputDir = "C:/Users/GameOn/Desktop/AAA";  // Укажите путь к директории для сохранения изображений
-            convertPDFToJPG(pdfFilePath, outputDir);
-            System.out.println("PDF successfully converted to JPG!");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public List<File> getPdfFilesList() {
+        return pdfFilesList;
+    }
+
+    public List<File> getImageFilesList() {
+        return imageFilesList;
     }
 }
+
+//C:/Users/GameOn/Desktop/AAA/1.pdf
