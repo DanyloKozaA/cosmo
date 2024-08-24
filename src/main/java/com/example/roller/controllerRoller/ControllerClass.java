@@ -10,17 +10,20 @@ import org.springframework.stereotype.Controller;
 
 
 import java.time.LocalDate;
+import java.util.Iterator;
 
 
 @Controller
-public class ControllerClass {
+public class ControllerClass{
 
     @QueryMapping
     public String sort(@Argument String encode) {
+
+
         return "sorted result";
     }
 
-    @MutationMapping
+
     public Transaction createTransaction(
             @Argument String date,
             @Argument String business,
