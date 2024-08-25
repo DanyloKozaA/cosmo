@@ -15,6 +15,8 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 
 @Controller
@@ -29,24 +31,22 @@ public class ControllerClass {
     @QueryMapping
     public String getAllFiles(@Argument String path) {
         try {
-            // Step 1: Extract pages to separate PDF files
-            convertor.extractPagesToSeparatePDFs(path);
+            // Обработка файлов
+            convertor.processFilesInSequence(path);
 
-            // Step 2: Convert all PDFs in the list to images
-            convertor.convertPDFsToImages();
-
-            // Get the list of image files
+            // Получите список файлов изображений после конвертации
             List<File> imageFilesList = convertor.getImageFilesList();
 
-            // Step 3: Perform OCR on all image files
+            // Выполните OCR на всех изображениях
             TesserConf ocrProcessor = new TesserConf(imageFilesList);
             ocrProcessor.performOCR();
 
-            System.out.println("PDF pages successfully converted to images and text extracted!");
+            System.out.println("PDF страницы успешно преобразованы в изображения и текст извлечен!");
         } catch (IOException e) {
             e.printStackTrace();
+            return "Ошибка обработки файла: " + e.getMessage();
         }
-        return "sorted result";
+        return "Результаты успешно обработаны.";
     }
 
     @MutationMapping
@@ -72,7 +72,7 @@ public class ControllerClass {
             return new Transaction(dateValue.toString(), businessValue, priceValue, debitValue, creditValue, valueDateValue.toString(), balanceValue, TitleIdValue);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Error creating transaction: " + e.getMessage());
+            throw new RuntimeException("Ошибка создания транзакции: " + e.getMessage());
         }
     }
 }
