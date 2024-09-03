@@ -13,13 +13,30 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import javax.imageio.ImageIO;
 import org.opencv.core.Rect;
 
+
+import net.sourceforge.tess4j.ITessAPI;
+import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.Word;
+import net.sourceforge.tess4j.util.ImageHelper;
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.core.Rect;
+import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Tests {
 
@@ -28,10 +45,10 @@ public class Tests {
     }
 
     public static void main(String[] args) {
-        double x1D = 0;
-        double y1D = 0;
-        double x2D = 0;
-        double y2D = 0;
+        double x1D;
+        double y1D;
+        double x2D;
+        double y2D;
 
         double aX1 = 0;
         double bY1 = 0;
@@ -65,40 +82,68 @@ public class Tests {
 
         // Выделить края с помощью оператора Кэнни
         Mat edges = new Mat();
-        Imgproc.Canny(imageE, edges, 50, 150);
+        Imgproc.Canny(imageE, edges, 20, 80);
 
         // Найти линии с использованием преобразования Хафа
         Mat lines = new Mat();
-        Imgproc.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, 50, 10);
+        Imgproc.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, 100, 10);
 
-        // Фильтрация горизонтальных толстых линий, исключая текстовые области
-        List<double[]> thickHorizontalLines = new ArrayList<>();
-        double thicknessThreshold = 300; // Порог для более толстых линий
-
+        // Преобразование линий в список
+        List<double[]> linesList = new ArrayList<>();
         for (int i = 0; i < lines.rows(); i++) {
-            double[] line = lines.get(i, 0);
+            linesList.add(lines.get(i, 0));
+        }
+
+        // Создаем список для объединенных линий
+        List<double[]> mergedLines = new ArrayList<>();
+
+        for (int i = 0; i < linesList.size(); i++) {
+            double[] line1 = linesList.get(i);
+            double x1 = line1[0];
+            double y1 = line1[1];
+            double x2 = line1[2];
+            double y2 = line1[3];
+
+            // Проверка всех следующих линий на близость и объединение их
+            for (int j = i + 1; j < linesList.size(); j++) {
+                double[] line2 = linesList.get(j);
+                double x3 = line2[0];
+                double y3 = line2[1];
+                double x4 = line2[2];
+                double y4 = line2[3];
+
+                // Проверка близости по координатам
+                if (Math.abs(y1 - y3) < 6 && Math.abs(y2 - y4) < 6 && Math.abs(x2 - x3) < 10) {
+                    // Объединение линий
+                    x1 = Math.min(x1, x3);
+                    x2 = Math.max(x2, x4);
+                    // Удаление объединенной линии из списка
+                    linesList.remove(j);
+                    j--;
+                }
+            }
+            // Добавление объединенной линии в список
+            mergedLines.add(new double[]{x1, y1, x2, y2});
+        }
+
+        // Вывод объединенных и фильтрованных линий
+        for (double[] line : mergedLines) {
             x1D = line[0];
             y1D = line[1];
             x2D = line[2];
             y2D = line[3];
 
             // Проверка на горизонтальность (небольшое изменение по оси Y)
-            if (Math.abs(y1D - y2D) <= 5) { // Порог для определения горизонтальных линий
-                double lineLength = Math.abs(x2D - x1D);
+            if (Math.abs(y1D - y2D) <= 5) {
+                double thickness = Math.sqrt((x2D - x1D) * (x2D - x1D) + (y2D - y1D) * (y2D - y1D));
 
-                // Новый фильтр: длина линии должна быть больше 520 пикселей
-                if (lineLength > 520) {
-                    double thickness = Math.sqrt((x2D - x1D) * (x2D - x1D) + (y2D - y1D) * (y2D - y1D));
-
-                    // Фильтрация более толстых линий и исключение областей текста
-                    if (thickness > thicknessThreshold && !isLineInTextRegion(x1D, y1D, x2D, y2D, textRegions)) {
-
-                        System.out.println("Толстая горизонтальная линия: [" + x1D + ", " + y1D + "] -> [" + x2D + ", " + y2D + "], толщина: " + thickness);
-                        aX1= x1D;
-                        bY1=y1D;
-                        cX2=x2D;
-                        dY2=y2D;
-                    }
+                double thicknessThreshold = 450; // Порог для более толстых линий
+                if (thickness > thicknessThreshold && !isLineInTextRegion(x1D, y1D, x2D, y2D, textRegions)) {
+                    System.out.println("Толстая горизонтальная линия: [" + x1D + ", " + y1D + "] -> [" + x2D + ", " + y2D + "], толщина: " + thickness);
+                    aX1 = 330;//x1D;
+                    bY1 = 355;//y1D;
+                    cX2 = 779;//x2D;
+                    dY2 = 370;//y2D;
                 }
             }
         }
@@ -109,10 +154,10 @@ public class Tests {
         String outputImagePath = "C:\\Users\\GameOn\\Desktop\\AAA\\j\\cropped_image.jpg";
 
         // Координаты для обрезки (например, координаты горизонтальной линии)
-        int x1 = (int)aX1;
-        int y1 = (int)bY1;
-        int x2 = (int)cX2;
-        int y2 = (int)dY2;
+        int x1 = (int) aX1;
+        int y1 = (int) bY1;
+        int x2 = (int) cX2;
+        int y2 = (int) dY2;
 
         System.out.println("x1 " + x1);
         System.out.println("y1 " + y1);

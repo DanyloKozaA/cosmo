@@ -33,6 +33,7 @@ public class TesserConf {
     public void performOCR() {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
+        tesseract.setLanguage("eng");
 
         for (File imageFile : imageFilesList) {
             try {
