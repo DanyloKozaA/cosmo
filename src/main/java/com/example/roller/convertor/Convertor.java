@@ -1,5 +1,6 @@
 package com.example.roller.convertor;
 
+import com.example.roller.entity.AccountStatement;
 import com.example.roller.util.Util;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -27,28 +28,6 @@ public class Convertor {
 
     public void processFiles(String inputPdfPath, String bankName) throws IOException {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-//        try {
-//            Directory directory = FSDirectory.open(Files.createTempDirectory("temp"));
-//            InputStream affFileStream = new FileInputStream("src/main/resources/hunspell/en_US.aff");
-//
-//            InputStream dicFileStream = new FileInputStream("src/main/resources/hunspell/en_US.dic");
-//            Dictionary dictionary = new Dictionary(directory, "spellCheck", affFileStream, dicFileStream);
-//
-//            Hunspell spellChecker = new Hunspell(dictionary);
-//
-//            String correctWord = "guava";
-//            String misspelledWord = "recieve";
-//
-//            System.out.println(String.format("Is %s spelled correctly?: %b", correctWord, spellChecker.spell(correctWord)));
-//            System.out.println(String.format("Is %s spelled correctly?: %b", misspelledWord, spellChecker.spell(misspelledWord)));
-//            System.out.println(String.format("Did you mean: %s", spellChecker.suggest(misspelledWord)));
-//        } catch (IOException e) {
-//        System.out.println(e);
-//        e.printStackTrace();
-//    } catch (ParseException e) {
-//            throw new RuntimeException(e);
-//        }
-
 
         List<File> pdfList = Util.extractPagesToSeparatePDFs(inputPdfPath);
         ExecutorService executorService = Executors.newFixedThreadPool(5);
@@ -138,10 +117,12 @@ public class Convertor {
    ArrayList<String> arrayList = new ArrayList<>(lines);
         // Loop through each line
 
+        Object currentFile  = null;
 
         String currentPage = null;
         String totalPages = null;
         String clientNo = null;
+
 
         for (int i = 0; i < arrayList.size(); i++) {
             String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");;
@@ -157,28 +138,26 @@ public class Convertor {
                 clientNo = Util.getClientNo(line);
             }
 
-//            System.out.println(line);
-            extractTransactions(line);
-//            System.out.println(line);
+////            System.out.println(line);
+//            extractTransactions(line);
+////            System.out.println(line);
 //
-//            if (approxContains(line, "accountstatement", 3)) {
-//                AccountStatement accountStatement = new AccountStatement();
-//                System.out.println("accountStatement");
-//
-//                if (Util.findDates(line).size() > 0) {
-//                    System.out.println("second or other list of account statement");
-//
-//                    if (approxContains(arrayList.get(i + 1), "futureaccountbookings", 3)) {
-//                        System.out.println("Future Account Booking");
-//                    }
-//
-//                } else {
-//                    System.out.println("first list of account statement");
-//                }
-//
-//                //getStatemets()
-//
-//            }
+            if (approxContains(line, "accountstatement", 3)) {
+                AccountStatement accountStatement = new AccountStatement();
+                currentFile = accountStatement;
+
+                if (Util.findDates(line).size() > 0) {
+                    System.out.println("second or other list of account statement");
+                    System.out.println(Util.findDates(line));
+                } else {
+                    System.out.println( Util.findDates(arrayList.get(i + 1)));
+
+                    System.out.println("first list of account statement");
+                }
+
+                //getStatemets()
+
+            }
 //
 //
 //
@@ -262,6 +241,27 @@ public class Convertor {
     }
 
 
+    //        try {
+//            Directory directory = FSDirectory.open(Files.createTempDirectory("temp"));
+//            InputStream affFileStream = new FileInputStream("src/main/resources/hunspell/en_US.aff");
+//
+//            InputStream dicFileStream = new FileInputStream("src/main/resources/hunspell/en_US.dic");
+//            Dictionary dictionary = new Dictionary(directory, "spellCheck", affFileStream, dicFileStream);
+//
+//            Hunspell spellChecker = new Hunspell(dictionary);
+//
+//            String correctWord = "guava";
+//            String misspelledWord = "recieve";
+//
+//            System.out.println(String.format("Is %s spelled correctly?: %b", correctWord, spellChecker.spell(correctWord)));
+//            System.out.println(String.format("Is %s spelled correctly?: %b", misspelledWord, spellChecker.spell(misspelledWord)));
+//            System.out.println(String.format("Did you mean: %s", spellChecker.suggest(misspelledWord)));
+//        } catch (IOException e) {
+//        System.out.println(e);
+//        e.printStackTrace();
+//    } catch (ParseException e) {
+//            throw new RuntimeException(e);
+//        }
 
 
 

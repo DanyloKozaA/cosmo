@@ -10,7 +10,7 @@ import javax.persistence.Id;
 import javax.persistence.criteria.CriteriaBuilder;
 import java.util.ArrayList;
 
-@AllArgsConstructor
+@NoArgsConstructor
 @Data
 public class AccountStatement {
  @Id
