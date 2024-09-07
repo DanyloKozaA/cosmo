@@ -1,9 +1,18 @@
 package com.example.roller.util;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
+
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,32 +58,32 @@ public class Util {
         return input.replaceAll("^[^a-zA-Z0-9]+", "");
     }
 
-    public static Number getPageNumber(String line) {
-        line = line.replaceAll("\\s+", "");;
-        String regex = "Page(\\d+)/(\\d+)";
-        Pattern pattern = Pattern.compile(regex);
+    public static HashMap getPageInfo(String line) {
+        Pattern pattern = Pattern.compile("Page (\\d+)/(\\d+)");
         Matcher matcher = pattern.matcher(line);
+
         if (matcher.find()) {
-            int currentPage = Integer.parseInt(matcher.group(1));
-            return currentPage;
-        } else {
-            return null;
+            String currentPage = matcher.group(1);
+            String totalPages = matcher.group(2);
+            HashMap info = new HashMap<>();
+            info.put("currentPage",currentPage);
+            info.put("totalPages",totalPages);
+            return info;
         }
+        return null;
     }
 
     public static String getClientNo(String line){
         Pattern pattern = Pattern.compile("Client no\\.\\s*(\\d+-\\d+)");
 
-        // Create a matcher object.
+        System.out.println(line);
+
         Matcher matcher = pattern.matcher(line);
 
-        // Check if the pattern matches and extract the client number.
         if (matcher.find()) {
             String clientNumber = matcher.group(1); // The client number is captured in group 1
-            System.out.println("Client number: " + clientNumber);
             return clientNumber;
         } else {
-            System.out.println("Client number not found.");
             return null;
         }
     }
@@ -126,20 +135,62 @@ public class Util {
         }
         return "";
     }
-    public static boolean isTransaction(String input) {
-        // Updated regular expression for matching amounts with flexible space placement
-        String datePattern = "\\d{2}\\.\\d{2}\\.\\d{2}\\s+.+?\\s+\\d{1,4}(?:\\s\\d{1,3})*(?:\\.\\d{2})?\\s+\\d{2}\\.\\d{2}\\.\\d{2}\\s+\\d{1,4}(?:\\s\\d{1,3})*(?:\\.\\d{2})?";
 
-        // Compile the regex pattern
-        Pattern pattern = Pattern.compile(datePattern);
+    public static BufferedImage binarizeImage(BufferedImage image) {
+        BufferedImage grayscaleImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                int gray = (r + g + b) / 3; // Simple grayscale conversion
+                int grayRGB = (gray << 16) | (gray << 8) | gray; // Convert back to RGB
+                grayscaleImage.setRGB(x, y, grayRGB);
+            }
+        }
 
-        // Create a matcher object
-        Matcher matcher = pattern.matcher(input);
-//        System.out.println(input);
 
-        // Check if the string matches the pattern from the beginning
-        return matcher.find();
+        int threshold = 230; // You can adjust this threshold value
+        BufferedImage binaryImage = new BufferedImage(grayscaleImage.getWidth(), grayscaleImage.getHeight(), BufferedImage.TYPE_BYTE_BINARY);
+        for (int y = 0; y < grayscaleImage.getHeight(); y++) {
+            for (int x = 0; x < grayscaleImage.getWidth(); x++) {
+                int gray = grayscaleImage.getRGB(x, y) & 0xFF; // Extract gray value
+                if (gray < threshold) {
+                    binaryImage.setRGB(x, y, 0x000000); // Set to black
+                } else {
+                    binaryImage.setRGB(x, y, 0xFFFFFF); // Set to white
+                }
+            }
+        }
+        return binaryImage;
+    }
+    public static List<File> extractPagesToSeparatePDFs(String inputPdfPath) throws IOException {
+        List<File> pdfFiles = new ArrayList<>();
+        File pdfFile = new File(inputPdfPath);
+        if (!pdfFile.exists()) {
+            throw new IOException("File not found: " + inputPdfPath);
+        }
+        try (PDDocument document = PDDocument.load(pdfFile)) {
+            int totalPages = document.getNumberOfPages();
+            for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                PDPage page = document.getPage(pageIndex);
+                try (PDDocument newDoc = new PDDocument()) {
+                    newDoc.addPage(page);
+                    File newFile = File.createTempFile("page_" + (pageIndex + 1), ".pdf");
+                    newDoc.save(newFile);
+                    pdfFiles.add(newFile);
+                }
+            }
+        }
+        return pdfFiles;
     }
 
+    public static BufferedImage convertPDFToImage(File pdfFile) throws IOException {
+        try (PDDocument document = PDDocument.load(pdfFile)) {
+            PDFRenderer pdfRenderer = new PDFRenderer(document);
+            return pdfRenderer.renderImageWithDPI(0, 800, ImageType.RGB);
+        }
+    }
 
 }

@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.Date;
 
 @Data
+@AllArgsConstructor
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,16 +26,4 @@ public class Transaction {
     private String valueDate;
     private double balance = 0;
     private String TitleId;
-
-    public Transaction(String date, String business, double price, double debit, double credit, String valueDate, double balance, String TitleId) {
-        this.date = date;
-        this.business = business;
-        this.price = price;
-        this.debit = debit;
-        this.credit = credit;
-        this.valueDate = valueDate;
-        this.balance = balance;
-        this.TitleId = TitleId;
-    }
-
 }
