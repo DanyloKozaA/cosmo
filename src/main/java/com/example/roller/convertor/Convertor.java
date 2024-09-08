@@ -80,13 +80,15 @@ public class Convertor {
 
 
       public static String extractTransactions(String line) {
+          System.out.println("ddddddddddddddddddddd");
+          System.out.println(line);
 //          System.out.println(line);
         String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+.*?\\s+([\\d,]+\\.\\d{2})\\s*[^\\w]*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]+\\d{3}\\.\\d{2})";
 
         Pattern pattern = Pattern.compile(transactionPattern);
         Matcher matcher = pattern.matcher(line);
 
-        if (matcher.matches()) {
+        if (matcher.find()) {
 //            System.out.println("Matched line: " + line);
 
             // Optionally, extract the matched groups
@@ -96,10 +98,10 @@ public class Convertor {
             String value2 = matcher.group(4);
 
 //            // Print extracted groups (or use them as needed)
-//            System.out.println("First Date: " + date1);
-//            System.out.println("First Value: " + value1);
-//            System.out.println("Second Date: " + date2);
-//            System.out.println("Second Value: " + value2);
+            System.out.println("First Date: " + date1);
+            System.out.println("First Value: " + value1);
+            System.out.println("Second Date: " + date2);
+            System.out.println("Second Value: " + value2);
         } else {
 //            System.out.println("No match found for the line.");
         }
@@ -123,6 +125,7 @@ public class Convertor {
         String totalPages = null;
         String clientNo = null;
 
+        ArrayList f = new ArrayList();
 
         for (int i = 0; i < arrayList.size(); i++) {
             String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");;
@@ -139,10 +142,11 @@ public class Convertor {
             }
 
 ////            System.out.println(line);
-//            extractTransactions(line);
+
 ////            System.out.println(line);
 //
-            if (approxContains(line, "accountstatement", 3)) {
+            if (approxContains(line, "Account Statement", 3)) {
+                extractTransactions(text);
                 AccountStatement accountStatement = new AccountStatement();
                 currentFile = accountStatement;
 
@@ -193,6 +197,7 @@ public class Convertor {
         System.out.println(currentPage + " currentPage");
         System.out.println(totalPages + " totalPages");
         System.out.println(clientNo + " clientNo");
+
 
     }
 

@@ -77,7 +77,7 @@ public class Util {
         Pattern pattern = Pattern.compile("Client no\\.\\s*(\\d+-\\d+)");
         Matcher matcher = pattern.matcher(line);
         if (matcher.find()) {
-            String clientNumber = matcher.group(1); // The client number is captured in group 1
+            String clientNumber = matcher.group(1);
             return clientNumber;
         } else {
             return null;
