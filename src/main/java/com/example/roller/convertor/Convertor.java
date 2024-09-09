@@ -1,6 +1,8 @@
 package com.example.roller.convertor;
 
 import com.example.roller.entity.AccountStatement;
+import com.example.roller.entity.Advice;
+import com.example.roller.entity.Transaction;
 import com.example.roller.util.Util;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -40,13 +42,13 @@ public class Convertor {
                 try {
                     Tesseract threadTesseract = new Tesseract();
                     threadTesseract.setOcrEngineMode(1);
-                    threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
+                    threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
                     threadTesseract.setLanguage("eng");
                     threadTesseract.setTessVariable("preserve_interword_spaces", "1");
 
 
                     BufferedImage image = Util.convertPDFToImage(pdf);
-                    File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
+                    File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
                     image = Util.binarizeImage(image);
                     ImageIO.write(image, "png", outputFile);
 
@@ -78,38 +80,59 @@ public class Convertor {
         }
     }
 
+    public static Object extractAdvice(String line){
+        Object adviceObject = null;
 
-      public static String extractTransactions(String line) {
-          System.out.println("ddddddddddddddddddddd");
-          System.out.println(line);
-//          System.out.println(line);
-        String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+.*?\\s+([\\d,]+\\.\\d{2})\\s*[^\\w]*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]+\\d{3}\\.\\d{2})";
+        String advicePattern = "([\\D+\\s]*)";
+
+        Pattern pattern = Pattern.compile(advicePattern);
+        Matcher mather = pattern.matcher(line);
+
+        if(mather.find()){
+            System.out.println("extract matcher: " + line);
+
+        }
+        return null;
+    }
+
+      public static Transaction extractTransactions(String line) {
+
+
+        String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+.*?\\s+([\\d ]*\\d+\\.\\d+)\\s*[^\\w]*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]+\\d{3}\\.\\d{2})";
 
         Pattern pattern = Pattern.compile(transactionPattern);
         Matcher matcher = pattern.matcher(line);
 
-        if (matcher.find()) {
-//            System.out.println("Matched line: " + line);
+          if (matcher.find()) {
+              System.out.println("Matched line: " + line);
 
-            // Optionally, extract the matched groups
-            String date1 = matcher.group(1);
-            String value1 = matcher.group(2);
-            String date2 = matcher.group(3);
-            String value2 = matcher.group(4);
 
-//            // Print extracted groups (or use them as needed)
-            System.out.println("First Date: " + date1);
-            System.out.println("First Value: " + value1);
-            System.out.println("Second Date: " + date2);
-            System.out.println("Second Value: " + value2);
-        } else {
-//            System.out.println("No match found for the line.");
-        }
+              String value1Str = matcher.group(2).replace(" ", "");
+              double value1 = Double.parseDouble(value1Str);
 
-        return line;
+
+              String date2 = matcher.group(3);
+
+
+              String value2Str = matcher.group(4).replace(" ", "");
+              double value2 = Double.parseDouble(value2Str);
+
+              Transaction transaction = new Transaction();
+              transaction.setDebitOrCredit(value1);
+              transaction.setValueDate(date2);
+              transaction.setBalance(value2);
+
+
+
+              System.out.println("First Value: " + value1);
+              System.out.println("Second Date: " + date2);
+              System.out.println("Second Value: " + value2);
+              return transaction;
+          } else {
+              System.out.println("No match found for the line.");
+              return null;
+          }
     }
-
-
 
 
 
@@ -162,6 +185,17 @@ public class Convertor {
                 //getStatemets()
 
             }
+
+
+            if (approxContains(line, "Interest calculation",3) || (approxContains(line,"Closing of Service Price",3))){
+                //extractTransactions(text);
+                Advice advice = new Advice();
+                currentFile = advice;
+            }
+
+
+
+
 //
 //
 //
@@ -197,8 +231,6 @@ public class Convertor {
         System.out.println(currentPage + " currentPage");
         System.out.println(totalPages + " totalPages");
         System.out.println(clientNo + " clientNo");
-
-
     }
 
     public static int levenshteinDistance(String s1, String s2) {

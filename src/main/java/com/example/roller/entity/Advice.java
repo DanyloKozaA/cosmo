@@ -2,6 +2,7 @@ package com.example.roller.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -10,17 +11,13 @@ import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class Advice {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String totalCreditBalance;
+    private String type;
     private LocalDate valueDate;
-    private LocalDate date;
-    private String bookingText;
-    private String zkbReference;
-    private int numberOfTransactions;
-    private String messageForBeneficiary;
-
+    private double Amount;
 }
