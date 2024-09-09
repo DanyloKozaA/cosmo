@@ -30,13 +30,16 @@ import java.util.stream.Collectors;
 @SpringBootApplication
 @EnableAsync
 public class RollerApplication {
-    public static void main(String[] args) throws IOException, TesseractException {
+    public static void main(String[] args) {
         SpringApplication.run(RollerApplication.class, args);
         Convertor convertor = new Convertor();
         ControllerClass controller = new ControllerClass(convertor);
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-//controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2024 03 UBS Advices 60R.USD.pdf","UBS");
-    controller.getAllFiles("C:\\Users\\GameOn\\Desktop\\AAA\\j\\a1.pdf","UBS");
+
+        //Egor
+        // controller.getAllFiles("C:\\Users\\GameOn\\Desktop\\AAA\\j\\a1.pdf","UBS");
+        //Danylo
+         controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2023 06 30 Statement 60P.USD.pdf","UBS");
 
 
     }

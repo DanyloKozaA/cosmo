@@ -18,6 +18,6 @@ public class Advice {
     private Long id;
 
     private String type;
-    private LocalDate valueDate;
-    private double Amount;
+    private String valueDate;
+    private String Amount;
 }

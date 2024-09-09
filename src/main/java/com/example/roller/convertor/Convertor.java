@@ -42,13 +42,19 @@ public class Convertor {
                 try {
                     Tesseract threadTesseract = new Tesseract();
                     threadTesseract.setOcrEngineMode(1);
-                    threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
+                    //Egor
+                    // threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
+                    //Danylo
+                    threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
                     threadTesseract.setLanguage("eng");
                     threadTesseract.setTessVariable("preserve_interword_spaces", "1");
 
 
                     BufferedImage image = Util.convertPDFToImage(pdf);
-                    File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
+                    //Egor
+                    //File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
+                    //Danylo
+                    File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
                     image = Util.binarizeImage(image);
                     ImageIO.write(image, "png", outputFile);
 
@@ -96,37 +102,25 @@ public class Convertor {
     }
 
       public static Transaction extractTransactions(String line) {
-
-
         String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+.*?\\s+([\\d ]*\\d+\\.\\d+)\\s*[^\\w]*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]+\\d{3}\\.\\d{2})";
-
         Pattern pattern = Pattern.compile(transactionPattern);
         Matcher matcher = pattern.matcher(line);
 
           if (matcher.find()) {
-              System.out.println("Matched line: " + line);
 
-
-              String value1Str = matcher.group(2).replace(" ", "");
-              double value1 = Double.parseDouble(value1Str);
-
-
-              String date2 = matcher.group(3);
-
-
-              String value2Str = matcher.group(4).replace(" ", "");
-              double value2 = Double.parseDouble(value2Str);
+              String cashEffect = matcher.group(2).replace(" ", "");
+              String valueDate = matcher.group(3).replace(" ", "");
+              String balance = matcher.group(4).replace(" ", "");
 
               Transaction transaction = new Transaction();
-              transaction.setDebitOrCredit(value1);
-              transaction.setValueDate(date2);
-              transaction.setBalance(value2);
+              transaction.setCashEffect(cashEffect);
+              transaction.setValueDate(valueDate);
+              transaction.setBalance(balance);
 
 
-
-              System.out.println("First Value: " + value1);
-              System.out.println("Second Date: " + date2);
-              System.out.println("Second Value: " + value2);
+              System.out.println("First Value: " + cashEffect);
+              System.out.println("Second Date: " + valueDate);
+              System.out.println("Second Value: " + balance);
               return transaction;
           } else {
               System.out.println("No match found for the line.");
@@ -140,15 +134,14 @@ public class Convertor {
     List lines = Arrays.stream(text.split("\\n")).toList();
 
    ArrayList<String> arrayList = new ArrayList<>(lines);
-        // Loop through each line
 
-        Object currentFile  = null;
 
         String currentPage = null;
         String totalPages = null;
         String clientNo = null;
 
-        ArrayList f = new ArrayList();
+        Object file;
+
 
         for (int i = 0; i < arrayList.size(); i++) {
             String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");;
@@ -164,14 +157,21 @@ public class Convertor {
                 clientNo = Util.getClientNo(line);
             }
 
-////            System.out.println(line);
-
-////            System.out.println(line);
-//
-            if (approxContains(line, "Account Statement", 3)) {
-                extractTransactions(text);
+            if (line.contains("Account Statement")){
+                ArrayList<Transaction> transactions = new ArrayList<Transaction>();
+                for (int j = 0; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    Transaction transaction = extractTransactions(innerLine);
+                    if (transaction != null){
+                        transactions.add(transaction);
+                    }
+                }
                 AccountStatement accountStatement = new AccountStatement();
-                currentFile = accountStatement;
+                accountStatement.setTransactions(transactions);
+                System.out.println(transactions);
+                System.out.println("transactions");
+                file = accountStatement;
+
 
                 if (Util.findDates(line).size() > 0) {
                     System.out.println("second or other list of account statement");
@@ -190,7 +190,6 @@ public class Convertor {
             if (approxContains(line, "Interest calculation",3) || (approxContains(line,"Closing of Service Price",3))){
                 //extractTransactions(text);
                 Advice advice = new Advice();
-                currentFile = advice;
             }
 
 
@@ -228,6 +227,7 @@ public class Convertor {
 ////                System.out.println("dfff");
 //            }
         }
+
         System.out.println(currentPage + " currentPage");
         System.out.println(totalPages + " totalPages");
         System.out.println(clientNo + " clientNo");
