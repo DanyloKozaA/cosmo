@@ -19,4 +19,5 @@ public class Transaction {
     private String valueDate;
     private String balance;
     private String TitleId;
+    private String Status;
 }

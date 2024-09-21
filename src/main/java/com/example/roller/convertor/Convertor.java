@@ -19,19 +19,20 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.example.roller.util.Util.*;
+
 
 @Component
 public class Convertor {
-
+    List<Advice> adviceList = new ArrayList<>();
+    ArrayList<Transaction> transactions = new ArrayList<Transaction>();
     public Convertor() {
     }
-
-    int dfg = 0;
 
     public void processFiles(String inputPdfPath, String bankName) throws IOException {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
-        List<File> pdfList = Util.extractPagesToSeparatePDFs(inputPdfPath);
+        List<File> pdfList = extractPagesToSeparatePDFs(inputPdfPath);
         ExecutorService executorService = Executors.newFixedThreadPool(5);
 
 
@@ -43,24 +44,23 @@ public class Convertor {
                     Tesseract threadTesseract = new Tesseract();
                     threadTesseract.setOcrEngineMode(1);
                     //Egor
-                    // threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
+                    threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
                     //Danylo
-                    threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
+                   // threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
                     threadTesseract.setLanguage("eng");
                     threadTesseract.setTessVariable("preserve_interword_spaces", "1");
 
 
-                    BufferedImage image = Util.convertPDFToImage(pdf);
+                    BufferedImage image = convertPDFToImage(pdf);
                     //Egor
-                    //File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
+                    File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
                     //Danylo
-                    File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
-                    image = Util.binarizeImage(image);
+                   // File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
+                    image = binarizeImage(image);
                     ImageIO.write(image, "png", outputFile);
 
                     String text = threadTesseract.doOCR(image);
 
-//                    System.out.println(Util.getPageNumber(text));
 
                     if ("UBS".equals(bankName)) {
                         processTextUBS(text);
@@ -68,7 +68,6 @@ public class Convertor {
 
 
                 } catch (IOException | TesseractException e) {
-                    System.out.println(e);
                     e.printStackTrace();
                 }
             });
@@ -77,155 +76,296 @@ public class Convertor {
         executorService.shutdown();
 
         try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+            if (!executorService.awaitTermination(260, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
+                System.out.println("SHUT DOWN");
             }
         } catch (InterruptedException e) {
-            System.out.println(e);
             executorService.shutdownNow();
-        }
-    }
-
-    public static Object extractAdvice(String line){
-        Object adviceObject = null;
-
-        String advicePattern = "([\\D+\\s]*)";
-
-        Pattern pattern = Pattern.compile(advicePattern);
-        Matcher mather = pattern.matcher(line);
-
-        if(mather.find()){
-            System.out.println("extract matcher: " + line);
 
         }
-        return null;
     }
 
-      public static Transaction extractTransactions(String line) {
-        String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+.*?\\s+([\\d ]*\\d+\\.\\d+)\\s*[^\\w]*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]+\\d{3}\\.\\d{2})";
-        Pattern pattern = Pattern.compile(transactionPattern);
-        Matcher matcher = pattern.matcher(line);
-
-          if (matcher.find()) {
-
-              String cashEffect = matcher.group(2).replace(" ", "");
-              String valueDate = matcher.group(3).replace(" ", "");
-              String balance = matcher.group(4).replace(" ", "");
-
-              Transaction transaction = new Transaction();
-              transaction.setCashEffect(cashEffect);
-              transaction.setValueDate(valueDate);
-              transaction.setBalance(balance);
-
-
-              System.out.println("First Value: " + cashEffect);
-              System.out.println("Second Date: " + valueDate);
-              System.out.println("Second Value: " + balance);
-              return transaction;
-          } else {
-              System.out.println("No match found for the line.");
-              return null;
-          }
-    }
 
 
 
     private void processTextUBS(String text) throws IOException {
     List lines = Arrays.stream(text.split("\\n")).toList();
 
-   ArrayList<String> arrayList = new ArrayList<>(lines);
+    ArrayList<String> arrayList = new ArrayList<>(lines);
 
 
         String currentPage = null;
         String totalPages = null;
         String clientNo = null;
 
-        Object file;
 
 
         for (int i = 0; i < arrayList.size(); i++) {
-            String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");;
+            String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
 
-            HashMap pageInfo = Util.getPageInfo(line);
+            HashMap pageInfo = getPageInfo(line);
+
             if (pageInfo != null){
                 currentPage = (String) pageInfo.get("currentPage");
                 totalPages = (String) pageInfo.get("totalPages");
             }
 
 
-            if (Util.getClientNo(line) != null){
-                clientNo = Util.getClientNo(line);
+            if (getClientNo(line) != null){
+                clientNo = getClientNo(line);
             }
 
-            if (line.contains("Account Statement")){
-                ArrayList<Transaction> transactions = new ArrayList<Transaction>();
+
+
+            if (approxContains(line,"Account Statement",2)){
                 for (int j = 0; j < arrayList.size(); j++) {
                     String innerLine = arrayList.get(j);
                     Transaction transaction = extractTransactions(innerLine);
                     if (transaction != null){
+                        transaction.setStatus("true");
                         transactions.add(transaction);
+                    }else {
+                      transaction = notOrdinaryTransaction(innerLine);
+                       if (transaction != null){
+                           transaction.setStatus("false");
+                           transactions.add(transaction);
+                       }
                     }
                 }
                 AccountStatement accountStatement = new AccountStatement();
                 accountStatement.setTransactions(transactions);
-                System.out.println(transactions);
-                System.out.println("transactions");
-                file = accountStatement;
 
 
-                if (Util.findDates(line).size() > 0) {
-                    System.out.println("second or other list of account statement");
-                    System.out.println(Util.findDates(line));
+                if (findDates(line).size() > 0) {
+                    System.out.println(findDates(line));
                 } else {
-                    System.out.println( Util.findDates(arrayList.get(i + 1)));
+                    System.out.println( findDates(arrayList.get(i + 1)));
+                }
+                //getStatemets()
+            }
 
-                    System.out.println("first list of account statement");
+
+
+            if(approxContains(line, "Interest calculation" ,3) && extractAdviceDate(arrayList.get(i+1))!=null ) {
+                      for (int j = i; j < arrayList.size(); j++) {
+                          String innerLine = arrayList.get(j);
+                  if (approxContains(innerLine, "Interest calculation balance", 2)) {
+                        Advice advice = extractAdviceCalculator(innerLine);
+                        if (advice != null) {
+                            advice.setType("Interest calculator");
+                            adviceList.add(advice);
+                            break;
+                        }
+                    }
+                }
+            }
+
+
+
+            if(approxContains(line,"Custody fee",2) && extractAdviceCustodyFeeDate(arrayList.get(i+1))!=null){
+                String innerLine= arrayList.get(i+1);
+                String data = extractAdviceCustodyFeeDate(innerLine);
+                for (int j = 0; j < arrayList.size(); j++) {
+                    String innerLine2 = arrayList.get(j);
+                    Advice advice = new Advice();
+                    if(data!=null) {
+                        advice.setValueDate(data);
+
+                        if (approxContains(innerLine2, "Debit custody fee", 2)) {
+                            String amount = extractAdviceCustodyFeeAmount(innerLine2);
+                            if (amount != null) {
+                                advice.setAmount(amount);
+                                advice.setType("Custody fee");
+                                adviceList.add(advice);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
+            if(approxContains(line,"Mandate fee",2) && extractAdviceCustodyFeeDate(arrayList.get(i+1))!=null) {
+                String innerLine= arrayList.get(i+1);
+                String data = extractAdviceCustodyFeeDate(innerLine);
+                for (int j = 0; j < arrayList.size(); j++) {
+                    String innerLine2 = arrayList.get(j);
+                    Advice advice = new Advice();
+                    if(data!=null) {
+                        advice.setValueDate(data);
+                      if(approxContains(innerLine2,"Debit mandate fee",2)){
+                          String amount = extractAdviceMandateFeeAmount(innerLine2);
+                          if(amount!=null){
+                              advice.setAmount(amount);
+                              advice.setType("Mandate fee");
+                              adviceList.add(advice);
+                              break;
+                          }
+                      }
+                    }
+                }
+            }
+
+
+            if(approxContains(line,"Debit Advice",2) && extractFiterforDebitAdvice(line)!=null){
+                Advice advice = new Advice();
+                for (int j = i; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    if (approxContains(innerLine, "Total amount", 2)) {
+                       String amount = extractAdviceDebitAdviceAmount(innerLine);
+                         if(amount!=null){
+                             String inerLine2 = arrayList.get(j+1);
+                             String data = extractAdviceDebitAdviceDate(inerLine2);
+                              if(data!=null){
+                                  advice.setType("Debit Advice");
+                                  advice.setAmount(amount);
+                                  advice.setValueDate(data);
+                                  adviceList.add(advice);
+                                  break;
+                              }
+                         }
+                    }
                 }
 
-                //getStatemets()
-
-            }
-
-
-            if (approxContains(line, "Interest calculation",3) || (approxContains(line,"Closing of Service Price",3))){
-                //extractTransactions(text);
-                Advice advice = new Advice();
             }
 
 
 
+            if (approxContains(line, "Closing of Service Price", 3) && extractAdviceDate(arrayList.get(i + 1)) != null) {
+                String innerLine = arrayList.get(i + 1);
+                String data = extractAdviceDate(innerLine);
 
-//
-//
-//
-//            else if (approxContains(line, "contractnote", 3)) {
-//                System.out.println("contractnote");
-//                   if (approxContains(arrayList.get(i + 1), "Your change in capital", 3)) {
-//                       System.out.println("contact note with one transactionImact");
-//                }else{
-//                       System.out.println("contact note with many transactionImacts");
-//                   }
-//            } else  if (approxContains(line, "debitadvice", 3)) {
-//                System.out.println("debitadvice");
-//            }else  if (approxContains(line, "advicestatement", 3)) {
-//                System.out.println("advicestatement");
-//            }
-//
-//
-//
-//            //general login
-//            if (line.contains("Form without")){
-//                pageNumber = Util.getPageNumber(line);
-//                maxPageNumber = Util.getMaxPageNumber(line);
-////                System.out.println(pageNumber);
-////                System.out.println(maxPageNumber);
-//
-//            }
-//            if (line.contains("Client no")){
-//                clientNo = Util.getClientNo(line);
-////                System.out.println(clientNo);
-////                System.out.println("dfff");
-//            }
+                for (int j = 0; j < arrayList.size(); j++) {
+                    String innerLine2 = arrayList.get(j);
+                    Advice advice = new Advice();
+                    if (data != null) {
+                         advice.setValueDate(data);
+                         advice.setType("Closing of Service Price");
+                        if (approxContains(innerLine2, "Balance of closing of service prices", 3)) {
+                            String amount = extractAdviceClosServPriceAmount(innerLine2);
+                            if (amount != null) {
+                                advice.setAmount(amount);
+                                adviceList.add(advice);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
+                        if (approxContains(line, "Confirmation ",2) && filterForConfMetal(arrayList.get(i+1))!=null && !approxContains(line,"Confirmation of Amendment",2)) {
+                            for (int j = i; j < arrayList.size(); j++) {
+                                String innerLine = arrayList.get(j);
+                                String amount = extractAdviceConfMetalAmount(innerLine);
+                                if(amount!=null){
+                                    Advice advice = new Advice();
+                                    advice.setAmount(amount);
+                                    advice.setType("Confirmation Precious Metal");
+                                    String innerLine2 = arrayList.get(j+1);
+                                    String date = extractAdviceConfarmationMetalData(innerLine2);
+                                       if(date!=null){
+                                           advice.setValueDate(date);
+                                           adviceList.add(advice);
+                                       }
+                                }
+                                }
+                            }
+
+
+
+            if (approxContains(line, "Confirmation ",2) && filterForConfStandard(arrayList.get(i+1))!=null) {
+                for (int j = i; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    String amount = extractAdviceConfirmationAmount(innerLine);
+                    if(amount!=null){
+                        Advice advice = new Advice();
+                        advice.setAmount(amount);
+                        advice.setType("Confirmation Standard");
+                        String innerLine2 = arrayList.get(j+3);
+                        String date = extractAdviceConfarmationData(innerLine2);
+                        if(date!=null){
+                            advice.setValueDate(date);
+                            adviceList.add(advice);
+                        }
+                    }
+                }
+            }
+
+
+
+            if (approxContains(line, "Confirmation ",2) && filterForConfFX(arrayList.get(i+1))!=null) {
+                for (int j = i; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    String amount = extractAdviceConfirmationFXAmount(innerLine);
+                    if(amount!=null){
+                        Advice advice = new Advice();
+                        advice.setAmount(amount);
+                        advice.setType("Confirmation FX");
+                        String innerLine2 = arrayList.get(j+1);
+                        String date = extractAdviceConfarmationMetalData(innerLine2);
+                        if(date!=null){
+                            advice.setValueDate(date);
+                            adviceList.add(advice);
+                        }
+                    }
+                }
+            }
+
+
+
+            if (approxContains(line, "Confirmation of Amendment",2) && filterForConfMetal(arrayList.get(i+1))!=null) {
+                for (int j = i; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    String amount = extractAdviceConfMetalAmount(innerLine);
+                    if(amount!=null){
+                        Advice advice = new Advice();
+                        advice.setAmount(amount);
+                        advice.setType("Confirmation of Amendment");
+                        String innerLine2 = arrayList.get(j+1);
+                        String date = extractAdviceConfarmationMetalData(innerLine2);
+                        if(date!=null){
+                            advice.setValueDate(date);
+                            adviceList.add(advice);
+                        }
+                    }
+                }
+            }
+
+
+
+
+            if (approxContains(line, "Contract note", 2) && extractFiterforDateWithNote(line)!=null) {
+                for (int j = i; j < arrayList.size(); j++) {
+                    String innerLine = arrayList.get(j);
+                    if (approxContains(innerLine, "In favour of account", 2) || approxContains(innerLine,"To the debit of account",2)) {
+                        Advice advice = extractAdviceCotractNote(innerLine);
+                        if (advice != null) {
+                            advice.setType("Contract Note");
+                            adviceList.add(advice);
+                            break;
+                        }
+                    }
+                }
+            }
+
+
+                     if(approxContains(line,"Advice/Statement",2)) {
+                         for (int j = i; j < arrayList.size(); j++) {
+                             String innerLine = arrayList.get(j);
+                             if (approxContains(innerLine, "CREDIT ACCOUNT", 2)) {
+                                 Advice advice;
+                                 advice = extractAdviceStatement(innerLine);
+                                 if (advice != null) {
+                                     advice.setType("Advice/Statement");
+                                     adviceList.add(advice);
+                                 }
+                             }
+                         }
+                     }
+
         }
 
         System.out.println(currentPage + " currentPage");
@@ -255,6 +395,8 @@ public class Convertor {
         return dp[len1][len2];
     }
 
+
+
     public static boolean approxContains(String text, String substring, int maxMistakes) {
 
         text = text.replaceAll("[^a-zA-Z]", "").toLowerCase();
@@ -271,36 +413,5 @@ public class Convertor {
 
         return false;
     }
-
-
-    private String getNoSpacesLowerCaseIgnoreSymbols(String originalString) {
-        return originalString.replaceAll("[^a-zA-Z]", "").toLowerCase();
-    }
-
-
-    //        try {
-//            Directory directory = FSDirectory.open(Files.createTempDirectory("temp"));
-//            InputStream affFileStream = new FileInputStream("src/main/resources/hunspell/en_US.aff");
-//
-//            InputStream dicFileStream = new FileInputStream("src/main/resources/hunspell/en_US.dic");
-//            Dictionary dictionary = new Dictionary(directory, "spellCheck", affFileStream, dicFileStream);
-//
-//            Hunspell spellChecker = new Hunspell(dictionary);
-//
-//            String correctWord = "guava";
-//            String misspelledWord = "recieve";
-//
-//            System.out.println(String.format("Is %s spelled correctly?: %b", correctWord, spellChecker.spell(correctWord)));
-//            System.out.println(String.format("Is %s spelled correctly?: %b", misspelledWord, spellChecker.spell(misspelledWord)));
-//            System.out.println(String.format("Did you mean: %s", spellChecker.suggest(misspelledWord)));
-//        } catch (IOException e) {
-//        System.out.println(e);
-//        e.printStackTrace();
-//    } catch (ParseException e) {
-//            throw new RuntimeException(e);
-//        }
-
-
-
 
 }
