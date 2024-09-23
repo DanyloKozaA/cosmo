@@ -1,20 +1,13 @@
-type Mutation{
-    createTransaction(date:String, business: String, price: Float, debit: Float, credit: Float, valueDate: String, balance: Float, TitleId: String): Transaction
-}
-
 type Transaction {
-    date: String
-    business: String
-    price: Float
-    debit: Float
-    credit: Float
-    valueDate: String
-    balance: Float
-    TitleId: String
+    cashEffect: String
+    valueDate:  String
+    balance:    String
+    TitleId:    String
+    Status :    String
 }
 
 type Query {
-    getAllFiles(path: String): String
+    getAllFiles(path: String, bankName: String): String
 
 }
 

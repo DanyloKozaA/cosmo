@@ -3,7 +3,6 @@ package com.example.roller.convertor;
 import com.example.roller.entity.AccountStatement;
 import com.example.roller.entity.Advice;
 import com.example.roller.entity.Transaction;
-import com.example.roller.util.Util;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.Core;
@@ -16,25 +15,22 @@ import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.example.roller.util.Util.*;
 
 
 @Component
 public class Convertor {
-    List<Advice> adviceList = new ArrayList<>();
-    ArrayList<Transaction> transactions = new ArrayList<Transaction>();
+    private final List<Object> FileList = new ArrayList<>();
+
     public Convertor() {
     }
 
-    public void processFiles(String inputPdfPath, String bankName) throws IOException {
+    public List<Object> processFiles(String inputPdfPath, String bankName) throws IOException {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
         List<File> pdfList = extractPagesToSeparatePDFs(inputPdfPath);
         ExecutorService executorService = Executors.newFixedThreadPool(5);
-
 
         for (int i = 0; i < pdfList.size(); i++) {
             File pdf = pdfList.get(i);
@@ -43,28 +39,23 @@ public class Convertor {
                 try {
                     Tesseract threadTesseract = new Tesseract();
                     threadTesseract.setOcrEngineMode(1);
-                    //Egor
+                    // Egor
                     threadTesseract.setDatapath("G:\\Tesseract-OCR\\tessdata");
-                    //Danylo
-                   // threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
+                    // Danylo
+                    // threadTesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
                     threadTesseract.setLanguage("eng");
                     threadTesseract.setTessVariable("preserve_interword_spaces", "1");
 
-
                     BufferedImage image = convertPDFToImage(pdf);
-                    //Egor
+                    // Egor
                     File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
-                    //Danylo
-                   // File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
+                    // Danylo
+                    // File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
                     image = binarizeImage(image);
                     ImageIO.write(image, "png", outputFile);
 
                     String text = threadTesseract.doOCR(image);
-
-
-                    if ("UBS".equals(bankName)) {
-                        processTextUBS(text);
-                    }
+                    processTextUBS(text);
 
 
                 } catch (IOException | TesseractException e) {
@@ -76,14 +67,15 @@ public class Convertor {
         executorService.shutdown();
 
         try {
-            if (!executorService.awaitTermination(260, TimeUnit.SECONDS)) {
+            if (!executorService.awaitTermination(220, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
                 System.out.println("SHUT DOWN");
             }
         } catch (InterruptedException e) {
             executorService.shutdownNow();
-
         }
+
+        return FileList;
     }
 
 
@@ -95,54 +87,56 @@ public class Convertor {
     ArrayList<String> arrayList = new ArrayList<>(lines);
 
 
-        String currentPage = null;
-        String totalPages = null;
-        String clientNo = null;
-
-
 
         for (int i = 0; i < arrayList.size(); i++) {
             String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
 
-            HashMap pageInfo = getPageInfo(line);
 
-            if (pageInfo != null){
-                currentPage = (String) pageInfo.get("currentPage");
-                totalPages = (String) pageInfo.get("totalPages");
-            }
+            if (approxContains(line, "Account Statement", 2)) {
 
+                AccountStatement accountStatement = new AccountStatement();
+                ArrayList<Transaction> pageTransactions = new ArrayList<>(); // Инициализируем новый список для каждой страницы
 
-            if (getClientNo(line) != null){
-                clientNo = getClientNo(line);
-            }
-
-
-
-            if (approxContains(line,"Account Statement",2)){
                 for (int j = 0; j < arrayList.size(); j++) {
+
                     String innerLine = arrayList.get(j);
                     Transaction transaction = extractTransactions(innerLine);
-                    if (transaction != null){
+
+                    if (transaction != null) {
                         transaction.setStatus("true");
-                        transactions.add(transaction);
-                    }else {
-                      transaction = notOrdinaryTransaction(innerLine);
-                       if (transaction != null){
-                           transaction.setStatus("false");
-                           transactions.add(transaction);
-                       }
+                        pageTransactions.add(transaction);
+                    } else {
+                        transaction = notOrdinaryTransaction(innerLine);
+
+                        if (transaction != null) {
+                            transaction.setStatus("false");
+                            pageTransactions.add(transaction);
+                        }
+                    }
+
+                    HashMap info = getPageInfo(innerLine);
+                    System.out.println(info + "safasf");
+                    String clientNo = getClientNo(innerLine);
+                    System.out.println(clientNo + "SADASD");
+
+                    if (info != null) {
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        accountStatement.setPage(currentPage);
+                        accountStatement.setMaxPages(maxPage);
+                    }
+
+                    if (clientNo != null) {
+                        accountStatement.setClientNo(clientNo);
                     }
                 }
-                AccountStatement accountStatement = new AccountStatement();
-                accountStatement.setTransactions(transactions);
 
+                // После обработки всех строк страницы:
+                accountStatement.setTransactions(pageTransactions);
+                System.out.println(accountStatement + "AAJJAJA");
 
-                if (findDates(line).size() > 0) {
-                    System.out.println(findDates(line));
-                } else {
-                    System.out.println( findDates(arrayList.get(i + 1)));
-                }
-                //getStatemets()
+                    FileList.add(accountStatement);
+
             }
 
 
@@ -154,11 +148,11 @@ public class Convertor {
                         Advice advice = extractAdviceCalculator(innerLine);
                         if (advice != null) {
                             advice.setType("Interest calculator");
-                            adviceList.add(advice);
-                            break;
+                            FileList.add(advice);
                         }
                     }
                 }
+                break;
             }
 
 
@@ -177,12 +171,12 @@ public class Convertor {
                             if (amount != null) {
                                 advice.setAmount(amount);
                                 advice.setType("Custody fee");
-                                adviceList.add(advice);
-                                break;
+                                FileList.add(advice);
                             }
                         }
                     }
                 }
+                break;
             }
 
 
@@ -200,12 +194,12 @@ public class Convertor {
                           if(amount!=null){
                               advice.setAmount(amount);
                               advice.setType("Mandate fee");
-                              adviceList.add(advice);
-                              break;
+                              FileList.add(advice);
                           }
                       }
                     }
                 }
+                break;
             }
 
 
@@ -222,13 +216,12 @@ public class Convertor {
                                   advice.setType("Debit Advice");
                                   advice.setAmount(amount);
                                   advice.setValueDate(data);
-                                  adviceList.add(advice);
-                                  break;
+                                  FileList.add(advice);
                               }
                          }
                     }
                 }
-
+                break;
             }
 
 
@@ -247,72 +240,73 @@ public class Convertor {
                             String amount = extractAdviceClosServPriceAmount(innerLine2);
                             if (amount != null) {
                                 advice.setAmount(amount);
-                                adviceList.add(advice);
+                                FileList.add(advice);
                             }
                         }
                     }
                 }
+                break;
             }
 
 
 
-                        if (approxContains(line, "Confirmation ",2) && filterForConfMetal(arrayList.get(i+1))!=null && !approxContains(line,"Confirmation of Amendment",2)) {
+                        if (approxContains(line, "Confirmation ",2) && !approxContains(line,"Confirmation of Amendment",2)) {
+
                             for (int j = i; j < arrayList.size(); j++) {
                                 String innerLine = arrayList.get(j);
-                                String amount = extractAdviceConfMetalAmount(innerLine);
-                                if(amount!=null){
-                                    Advice advice = new Advice();
-                                    advice.setAmount(amount);
-                                    advice.setType("Confirmation Precious Metal");
-                                    String innerLine2 = arrayList.get(j+1);
-                                    String date = extractAdviceConfarmationMetalData(innerLine2);
-                                       if(date!=null){
-                                           advice.setValueDate(date);
-                                           adviceList.add(advice);
-                                       }
+                                Advice advice = new Advice();
+
+                                if(approxContains(innerLine,"Transaction Currency Amount",2)){
+                                     String amount = extractAdviceConfMetalAmount(innerLine);
+                                     if(amount!=null){
+                                         advice.setAmount(amount);
+                                         advice.setType("Confirmation");
+                                         String innerLine2 = arrayList.get(j+1);
+                                         String date = extractAdviceConfarmationMetalData(innerLine2);
+                                         if(date!=null){
+                                             advice.setValueDate(date);
+                                             System.out.println(advice + " CCCCC");
+                                             FileList.add(advice);
+                                        }
+                                    }
                                 }
+
+
+                                if(approxContains(innerLine,"Premium",2)){
+                                    String amount = extractAdviceConfirmationAmount(innerLine);
+                                    if(amount!=null){
+                                        advice.setAmount(amount);
+                                        advice.setType("Confirmation");
+                                        String innerLine2 = arrayList.get(j+3);
+                                        String date = extractAdviceConfarmationData(innerLine2);
+                                        if(date!=null){
+                                            advice.setValueDate(date);
+                                            System.out.println(advice + "BBBBB");
+                                            FileList.add(advice);
+                                        }
+                                    }
+                                }
+
+
+                                if (approxContains(innerLine, "Amount and Currency Payable by Counterparty",2)){
+                                    String amount = extractAdviceConfirmationFXAmount(innerLine);
+                                    if(amount!=null){
+                                        advice.setAmount(amount);
+                                        advice.setType("Confirmation");
+                                        String innerLine2 = arrayList.get(j+1);
+                                        String date = extractAdviceConfarmationMetalData(innerLine2);
+                                        if(date!=null){
+                                            advice.setValueDate(date);
+                                            System.out.println(advice + "AAAAA");
+                                            FileList.add(advice);
+                                        }
+                                    }
+
                                 }
                             }
+                            break;
 
-
-
-            if (approxContains(line, "Confirmation ",2) && filterForConfStandard(arrayList.get(i+1))!=null) {
-                for (int j = i; j < arrayList.size(); j++) {
-                    String innerLine = arrayList.get(j);
-                    String amount = extractAdviceConfirmationAmount(innerLine);
-                    if(amount!=null){
-                        Advice advice = new Advice();
-                        advice.setAmount(amount);
-                        advice.setType("Confirmation Standard");
-                        String innerLine2 = arrayList.get(j+3);
-                        String date = extractAdviceConfarmationData(innerLine2);
-                        if(date!=null){
-                            advice.setValueDate(date);
-                            adviceList.add(advice);
                         }
-                    }
-                }
-            }
-
-
-
-            if (approxContains(line, "Confirmation ",2) && filterForConfFX(arrayList.get(i+1))!=null) {
-                for (int j = i; j < arrayList.size(); j++) {
-                    String innerLine = arrayList.get(j);
-                    String amount = extractAdviceConfirmationFXAmount(innerLine);
-                    if(amount!=null){
-                        Advice advice = new Advice();
-                        advice.setAmount(amount);
-                        advice.setType("Confirmation FX");
-                        String innerLine2 = arrayList.get(j+1);
-                        String date = extractAdviceConfarmationMetalData(innerLine2);
-                        if(date!=null){
-                            advice.setValueDate(date);
-                            adviceList.add(advice);
-                        }
-                    }
-                }
-            }
 
 
 
@@ -328,10 +322,11 @@ public class Convertor {
                         String date = extractAdviceConfarmationMetalData(innerLine2);
                         if(date!=null){
                             advice.setValueDate(date);
-                            adviceList.add(advice);
+                            FileList.add(advice);
                         }
                     }
                 }
+                break;
             }
 
 
@@ -344,11 +339,11 @@ public class Convertor {
                         Advice advice = extractAdviceCotractNote(innerLine);
                         if (advice != null) {
                             advice.setType("Contract Note");
-                            adviceList.add(advice);
-                            break;
+                            FileList.add(advice);
                         }
                     }
                 }
+                break;
             }
 
 
@@ -360,17 +355,15 @@ public class Convertor {
                                  advice = extractAdviceStatement(innerLine);
                                  if (advice != null) {
                                      advice.setType("Advice/Statement");
-                                     adviceList.add(advice);
+                                     FileList.add(advice);
                                  }
                              }
                          }
+                         break;
                      }
 
         }
-
-        System.out.println(currentPage + " currentPage");
-        System.out.println(totalPages + " totalPages");
-        System.out.println(clientNo + " clientNo");
+        System.out.println(FileList + "AAAAAAAAAAAAA");
     }
 
     public static int levenshteinDistance(String s1, String s2) {

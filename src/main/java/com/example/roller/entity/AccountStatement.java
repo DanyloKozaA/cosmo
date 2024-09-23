@@ -18,7 +18,6 @@ public class AccountStatement {
  private String id;
  private String clientNo;
  private ArrayList<Transaction> transactions;
- private Number page;
- private Number maxPages;
-
+ private String page;
+ private String maxPages;
 }
