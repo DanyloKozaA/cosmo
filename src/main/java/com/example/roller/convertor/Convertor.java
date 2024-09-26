@@ -7,10 +7,8 @@ import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.Core;
 import org.springframework.stereotype.Component;
-
 import java.io.File;
 import java.io.IOException;
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
@@ -21,20 +19,18 @@ import static com.example.roller.util.Util.*;
 
 @Component
 public class Convertor {
-    private final List<Object> FileList = new ArrayList<>();
+    private final List<Object> fileList = new ArrayList<>();
 
     public Convertor() {
     }
 
-    public List<Object> processFiles(String inputPdfPath, String bankName) throws IOException {
+        public List<Object> processFiles (String inputPdfPath, String bankName) throws IOException {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-
         List<File> pdfList = extractPagesToSeparatePDFs(inputPdfPath);
         ExecutorService executorService = Executors.newFixedThreadPool(5);
 
         for (int i = 0; i < pdfList.size(); i++) {
             File pdf = pdfList.get(i);
-            int pageIndex = i + 1; //
             executorService.submit(() -> {
                 try {
                     Tesseract threadTesseract = new Tesseract();
@@ -47,13 +43,8 @@ public class Convertor {
                     threadTesseract.setTessVariable("preserve_interword_spaces", "1");
 
                     BufferedImage image = convertPDFToImage(pdf);
-                    // Egor
-                    File outputFile = new File("C:\\Users\\GameOn\\Desktop\\AAA\\meow" + pageIndex + ".png");
-                    // Danylo
-                    // File outputFile = new File("C:\\Users\\Danylo\\Downloads\\outputdfgdfg" + pageIndex + ".png");
-                    image = binarizeImage(image);
-                    ImageIO.write(image, "png", outputFile);
 
+                    image = binarizeImage(image);
                     String text = threadTesseract.doOCR(image);
                     processTextUBS(text);
 
@@ -67,7 +58,7 @@ public class Convertor {
         executorService.shutdown();
 
         try {
-            if (!executorService.awaitTermination(220, TimeUnit.SECONDS)) {
+            if (!executorService.awaitTermination(300, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
                 System.out.println("SHUT DOWN");
             }
@@ -75,7 +66,7 @@ public class Convertor {
             executorService.shutdownNow();
         }
 
-        return FileList;
+        return fileList;
     }
 
 
@@ -83,7 +74,6 @@ public class Convertor {
 
     private void processTextUBS(String text) throws IOException {
     List lines = Arrays.stream(text.split("\\n")).toList();
-
     ArrayList<String> arrayList = new ArrayList<>(lines);
 
 
@@ -93,7 +83,6 @@ public class Convertor {
 
 
             if (approxContains(line, "Account Statement", 2)) {
-
                 AccountStatement accountStatement = new AccountStatement();
                 ArrayList<Transaction> pageTransactions = new ArrayList<>(); // Инициализируем новый список для каждой страницы
 
@@ -115,9 +104,7 @@ public class Convertor {
                     }
 
                     HashMap info = getPageInfo(innerLine);
-                    System.out.println(info + "safasf");
                     String clientNo = getClientNo(innerLine);
-                    System.out.println(clientNo + "SADASD");
 
                     if (info != null) {
                         String currentPage =(String) info.get("currentPage");
@@ -135,20 +122,33 @@ public class Convertor {
                 accountStatement.setTransactions(pageTransactions);
                 System.out.println(accountStatement + "AAJJAJA");
 
-                    FileList.add(accountStatement);
+                    fileList.add(accountStatement);
+                System.out.println(fileList + "!@#!@#!@#!@#@");
 
             }
 
 
 
             if(approxContains(line, "Interest calculation" ,3) && extractAdviceDate(arrayList.get(i+1))!=null ) {
+                Advice advice = new Advice();
                       for (int j = i; j < arrayList.size(); j++) {
                           String innerLine = arrayList.get(j);
-                  if (approxContains(innerLine, "Interest calculation balance", 2)) {
-                        Advice advice = extractAdviceCalculator(innerLine);
-                        if (advice != null) {
-                            advice.setType("Interest calculator");
-                            FileList.add(advice);
+                          HashMap info = getPageInfo(innerLine);
+                          if (info != null) {
+                              String currentPage =(String) info.get("currentPage");
+                              String maxPage =(String) info.get("totalPages");
+                              advice.setPage(currentPage);
+                              advice.setMaxPages(maxPage);
+                          }
+                          if (approxContains(innerLine, "Interest calculation balance", 2)) {
+                              HashMap dateAmount = extractAdviceCalculator(innerLine);
+                            if (dateAmount != null) {
+                              String date =(String) dateAmount.get("date");
+                              String amount =(String) dateAmount.get("amount");
+                              advice.setAmount(amount);
+                              advice.setValueDate(date);
+                              advice.setType("Interest calculator");
+                              fileList.add(advice);
                         }
                     }
                 }
@@ -158,20 +158,26 @@ public class Convertor {
 
 
             if(approxContains(line,"Custody fee",2) && extractAdviceCustodyFeeDate(arrayList.get(i+1))!=null){
+                Advice advice = new Advice();
                 String innerLine= arrayList.get(i+1);
                 String data = extractAdviceCustodyFeeDate(innerLine);
                 for (int j = 0; j < arrayList.size(); j++) {
                     String innerLine2 = arrayList.get(j);
-                    Advice advice = new Advice();
+                    HashMap info = getPageInfo(innerLine2);
                     if(data!=null) {
                         advice.setValueDate(data);
-
+                        if (info != null) {
+                            String currentPage =(String) info.get("currentPage");
+                            String maxPage =(String) info.get("totalPages");
+                            advice.setPage(currentPage);
+                            advice.setMaxPages(maxPage);
+                        }
                         if (approxContains(innerLine2, "Debit custody fee", 2)) {
                             String amount = extractAdviceCustodyFeeAmount(innerLine2);
                             if (amount != null) {
                                 advice.setAmount(amount);
                                 advice.setType("Custody fee");
-                                FileList.add(advice);
+                                fileList.add(advice);
                             }
                         }
                     }
@@ -182,11 +188,19 @@ public class Convertor {
 
 
             if(approxContains(line,"Mandate fee",2) && extractAdviceCustodyFeeDate(arrayList.get(i+1))!=null) {
+                Advice advice = new Advice();
                 String innerLine= arrayList.get(i+1);
                 String data = extractAdviceCustodyFeeDate(innerLine);
                 for (int j = 0; j < arrayList.size(); j++) {
                     String innerLine2 = arrayList.get(j);
-                    Advice advice = new Advice();
+                    HashMap info = getPageInfo(innerLine2);
+                    if (info != null) {
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        advice.setPage(currentPage);
+                        advice.setMaxPages(maxPage);
+                        System.out.println(currentPage + maxPage + "AAAAAAAA1231231212312132");
+                    }
                     if(data!=null) {
                         advice.setValueDate(data);
                       if(approxContains(innerLine2,"Debit mandate fee",2)){
@@ -194,7 +208,7 @@ public class Convertor {
                           if(amount!=null){
                               advice.setAmount(amount);
                               advice.setType("Mandate fee");
-                              FileList.add(advice);
+                              fileList.add(advice);
                           }
                       }
                     }
@@ -207,16 +221,23 @@ public class Convertor {
                 Advice advice = new Advice();
                 for (int j = i; j < arrayList.size(); j++) {
                     String innerLine = arrayList.get(j);
+                    HashMap info = getPageInfo(innerLine);
+                    if (info != null) {
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        advice.setPage(currentPage);
+                        advice.setMaxPages(maxPage);
+                    }
                     if (approxContains(innerLine, "Total amount", 2)) {
-                       String amount = extractAdviceDebitAdviceAmount(innerLine);
+                        String amount = extractAdviceDebitAdviceAmount(innerLine);
                          if(amount!=null){
-                             String inerLine2 = arrayList.get(j+1);
-                             String data = extractAdviceDebitAdviceDate(inerLine2);
+                             String innerLine2 = arrayList.get(j+1);
+                             String data = extractAdviceDebitAdviceDate(innerLine2);
                               if(data!=null){
                                   advice.setType("Debit Advice");
                                   advice.setAmount(amount);
                                   advice.setValueDate(data);
-                                  FileList.add(advice);
+                                  fileList.add(advice);
                               }
                          }
                     }
@@ -227,12 +248,20 @@ public class Convertor {
 
 
             if (approxContains(line, "Closing of Service Price", 3) && extractAdviceDate(arrayList.get(i + 1)) != null) {
+                Advice advice = new Advice();
                 String innerLine = arrayList.get(i + 1);
                 String data = extractAdviceDate(innerLine);
 
                 for (int j = 0; j < arrayList.size(); j++) {
                     String innerLine2 = arrayList.get(j);
-                    Advice advice = new Advice();
+                    HashMap info = getPageInfo(innerLine2);
+                    if (info != null) {
+                        System.out.println("!QQQQQQQQQQ");
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        advice.setPage(currentPage);
+                        advice.setMaxPages(maxPage);
+                    }
                     if (data != null) {
                          advice.setValueDate(data);
                          advice.setType("Closing of Service Price");
@@ -240,7 +269,7 @@ public class Convertor {
                             String amount = extractAdviceClosServPriceAmount(innerLine2);
                             if (amount != null) {
                                 advice.setAmount(amount);
-                                FileList.add(advice);
+                                fileList.add(advice);
                             }
                         }
                     }
@@ -252,9 +281,16 @@ public class Convertor {
 
                         if (approxContains(line, "Confirmation ",2) && !approxContains(line,"Confirmation of Amendment",2)) {
 
+                            Advice advice = new Advice();
                             for (int j = i; j < arrayList.size(); j++) {
                                 String innerLine = arrayList.get(j);
-                                Advice advice = new Advice();
+                                HashMap info = getPageInfo(innerLine);
+                                if (info != null) {
+                                    String currentPage =(String) info.get("currentPage");
+                                    String maxPage =(String) info.get("totalPages");
+                                    advice.setPage(currentPage);
+                                    advice.setMaxPages(maxPage);
+                                }
 
                                 if(approxContains(innerLine,"Transaction Currency Amount",2)){
                                      String amount = extractAdviceConfMetalAmount(innerLine);
@@ -266,7 +302,6 @@ public class Convertor {
                                          if(date!=null){
                                              advice.setValueDate(date);
                                              System.out.println(advice + " CCCCC");
-                                             FileList.add(advice);
                                         }
                                     }
                                 }
@@ -282,7 +317,6 @@ public class Convertor {
                                         if(date!=null){
                                             advice.setValueDate(date);
                                             System.out.println(advice + "BBBBB");
-                                            FileList.add(advice);
                                         }
                                     }
                                 }
@@ -298,31 +332,39 @@ public class Convertor {
                                         if(date!=null){
                                             advice.setValueDate(date);
                                             System.out.println(advice + "AAAAA");
-                                            FileList.add(advice);
                                         }
                                     }
 
                                 }
                             }
-                            break;
+                            fileList.add(advice);
 
+                            break;
                         }
 
 
 
             if (approxContains(line, "Confirmation of Amendment",2) && filterForConfMetal(arrayList.get(i+1))!=null) {
+                Advice advice = new Advice();
                 for (int j = i; j < arrayList.size(); j++) {
                     String innerLine = arrayList.get(j);
+                    HashMap info = getPageInfo(innerLine);
                     String amount = extractAdviceConfMetalAmount(innerLine);
+                    if (info != null) {
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        advice.setPage(currentPage);
+                        advice.setMaxPages(maxPage);
+                    }
+
                     if(amount!=null){
-                        Advice advice = new Advice();
                         advice.setAmount(amount);
                         advice.setType("Confirmation of Amendment");
                         String innerLine2 = arrayList.get(j+1);
                         String date = extractAdviceConfarmationMetalData(innerLine2);
                         if(date!=null){
                             advice.setValueDate(date);
-                            FileList.add(advice);
+                            fileList.add(advice);
                         }
                     }
                 }
@@ -333,13 +375,25 @@ public class Convertor {
 
 
             if (approxContains(line, "Contract note", 2) && extractFiterforDateWithNote(line)!=null) {
+                Advice advice = new Advice();
                 for (int j = i; j < arrayList.size(); j++) {
                     String innerLine = arrayList.get(j);
+                    HashMap info = getPageInfo(innerLine);
+                    if (info != null) {
+                        String currentPage =(String) info.get("currentPage");
+                        String maxPage =(String) info.get("totalPages");
+                        advice.setPage(currentPage);
+                        advice.setMaxPages(maxPage);
+                    }
                     if (approxContains(innerLine, "In favour of account", 2) || approxContains(innerLine,"To the debit of account",2)) {
-                        Advice advice = extractAdviceCotractNote(innerLine);
-                        if (advice != null) {
+                        HashMap dateAmount = extractAdviceCotractNote(innerLine);
+                        if (dateAmount != null) {
+                            String date =(String) dateAmount.get("date");
+                            String amount =(String) dateAmount.get("amount");
+                            advice.setValueDate(date);
+                            advice.setAmount(amount);
                             advice.setType("Contract Note");
-                            FileList.add(advice);
+                            fileList.add(advice);
                         }
                     }
                 }
@@ -348,22 +402,32 @@ public class Convertor {
 
 
                      if(approxContains(line,"Advice/Statement",2)) {
+                         Advice advice = new Advice();
                          for (int j = i; j < arrayList.size(); j++) {
                              String innerLine = arrayList.get(j);
+                             HashMap info = getPageInfo(innerLine);
+                             if (info != null) {
+                                 String currentPage =(String) info.get("currentPage");
+                                 String maxPage =(String) info.get("totalPages");
+                                 advice.setPage(currentPage);
+                                 advice.setMaxPages(maxPage);
+                             }
                              if (approxContains(innerLine, "CREDIT ACCOUNT", 2)) {
-                                 Advice advice;
-                                 advice = extractAdviceStatement(innerLine);
-                                 if (advice != null) {
+                                 HashMap dateAmout = extractAdviceStatement(innerLine);
+                                 if (dateAmout != null) {
+                                     String date = (String) dateAmout.get("date");
+                                     String amout = (String) dateAmout.get("amount");
+                                     advice.setAmount(amout);
+                                     advice.setValueDate(date);
                                      advice.setType("Advice/Statement");
-                                     FileList.add(advice);
+                                     fileList.add(advice);
                                  }
                              }
                          }
                          break;
                      }
-
         }
-        System.out.println(FileList + "AAAAAAAAAAAAA");
+        System.out.println(fileList + "AAAAAAAAAAAAA");
     }
 
     public static int levenshteinDistance(String s1, String s2) {

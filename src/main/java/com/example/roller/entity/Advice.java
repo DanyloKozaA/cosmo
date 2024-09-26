@@ -18,6 +18,8 @@ public class Advice {
     private Long id;
 
     private String type;
+    private String page;
+    private String maxPages;
     private String valueDate;
     private String Amount;
 }

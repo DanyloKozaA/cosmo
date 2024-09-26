@@ -64,7 +64,7 @@ public class Util {
         if (matcher.find()) {
             String currentPage = matcher.group(1);
             String totalPages = matcher.group(2);
-            HashMap info = new HashMap<>();
+            HashMap <String, String>info = new HashMap<>();
             info.put("currentPage",currentPage);
             info.put("totalPages",totalPages);
             return info;
@@ -389,7 +389,7 @@ public class Util {
         }
     }
 
-    public static Advice extractAdviceStatement(String line){
+    public static HashMap extractAdviceStatement(String line){
         String regex = "(\\D{6}\\s{1,3}\\D{7}\\s{1,4}\\d{3}\\W\\d{6}\\.\\d{2}\\D)\\s+\\D{5}\\s{1,4}(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]\\D{3}\\s+([\\d ]*\\d+\\.\\d{1,2})";
 
         Pattern pattern = Pattern.compile(regex);
@@ -398,16 +398,16 @@ public class Util {
         if(matcher.find()){
             String date = matcher.group(2);
             String amount = matcher.group(3).replace(" ","");
-            Advice advice = new Advice();
-            advice.setValueDate(date);
-            advice.setAmount(amount);
-            return advice;
+            HashMap<String,String> dateAmount = new HashMap<>();
+              dateAmount.put("date",date);
+              dateAmount.put("amount",amount);
+            return dateAmount;
         }else {
             return null;
         }
     }
 
-    public static Advice extractAdviceCotractNote(String line){
+    public static HashMap extractAdviceCotractNote(String line){
         String regex = "(\\D{5}\\s{1,3}\\D{4}\\s{1,3})(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]\\D{3}\\s+([\\d ]*\\d+\\.\\d{1,2})";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(line);
@@ -415,10 +415,10 @@ public class Util {
         if(matcher.find()){
             String date = matcher.group(2);
             String amount = matcher.group(3).replace(" ","");
-            Advice advice = new Advice();
-            advice.setAmount(amount);
-            advice.setValueDate(date);
-             return advice;
+            HashMap<String,String> dateAmount = new HashMap<>();
+            dateAmount.put("date",date);
+            dateAmount.put("amount",amount);
+             return dateAmount;
         }else {
         return null;
     }
@@ -433,48 +433,7 @@ public class Util {
 
         if (matcher.find()) {
             String data;
-            String month = matcher.group(3).trim().toLowerCase(Locale.ROOT);
-
-            switch (month) {
-                case "january":
-                    month = "01";
-                    break;
-                case "february":
-                    month = "02";
-                    break;
-                case "march":
-                    month = "03";
-                    break;
-                case "april":
-                    month = "04";
-                    break;
-                case "may":
-                    month = "05";
-                    break;
-                case "june":
-                    month = "06";
-                    break;
-                case "july":
-                    month = "07";
-                    break;
-                case "august":
-                    month = "08";
-                    break;
-                case "september":
-                    month = "09";
-                    break;
-                case "october":
-                    month = "10";
-                    break;
-                case "november":
-                    month = "11";
-                    break;
-                case "december":
-                    month = "12";
-                    break;
-                default:
-                    month = null;
-            }
+            String month = filterForDate(matcher.group(3).trim().toLowerCase(Locale.ROOT));
             if (month != null) {
                 if(matcher.group(2).length()<2){
                     String zero = "0" + matcher.group(2);
@@ -493,6 +452,50 @@ public class Util {
     }
 
 
+    public static String filterForDate(String date){
+        switch (date) {
+            case "january":
+                date = "01";
+                break;
+            case "february":
+                date = "02";
+                break;
+            case "march":
+                date = "03";
+                break;
+            case "april":
+                date = "04";
+                break;
+            case "may":
+                date = "05";
+                break;
+            case "june":
+                date = "06";
+                break;
+            case "july":
+                date = "07";
+                break;
+            case "august":
+                date = "08";
+                break;
+            case "september":
+                date = "09";
+                break;
+            case "october":
+                date = "10";
+                break;
+            case "november":
+                date = "11";
+                break;
+            case "december":
+                date = "12";
+                break;
+            default:
+                date = null;
+        }
+        return date;
+    }
+
 
 
     public static String extractAdviceConfarmationData(String line) {
@@ -503,48 +506,7 @@ public class Util {
 
         if (matcher.find()) {
             String data;
-            String month = matcher.group(3).trim().toLowerCase(Locale.ROOT);
-
-            switch (month) {
-                case "january":
-                    month = "01";
-                    break;
-                case "february":
-                    month = "02";
-                    break;
-                case "march":
-                    month = "03";
-                    break;
-                case "april":
-                    month = "04";
-                    break;
-                case "may":
-                    month = "05";
-                    break;
-                case "june":
-                    month = "06";
-                    break;
-                case "july":
-                    month = "07";
-                    break;
-                case "august":
-                    month = "08";
-                    break;
-                case "september":
-                    month = "09";
-                    break;
-                case "october":
-                    month = "10";
-                    break;
-                case "november":
-                    month = "11";
-                    break;
-                case "december":
-                    month = "12";
-                    break;
-                default:
-                    month = null;
-            }
+            String month = filterForDate(matcher.group(3).trim().toLowerCase(Locale.ROOT));
             if (month != null) {
                 if(matcher.group(2).length()<2){
                     String zero = "0" + matcher.group(2);
@@ -644,20 +606,20 @@ public class Util {
 
 
 
-    public static Advice extractAdviceCalculator(String line){
+    public static HashMap extractAdviceCalculator(String line){
 
         String advicePattern = "^(?!\\d{2}\\.\\d{2}\\.\\d{2})(\\D+\\s{2,})\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]*\\d+\\.\\d+)";
         Pattern pattern = Pattern.compile(advicePattern);
         Matcher mather = pattern.matcher(line);
         if(mather.find()){
-            String Amount = mather.group(3).replace(" ", "");
+            String amount = mather.group(3).replace(" ", "");
             String valueDate = mather.group(2);
-            Advice advice = new Advice();
-            advice.setAmount(Amount);
-            advice.setValueDate(valueDate);
+            HashMap dateAmount = new HashMap();
+            dateAmount.put("amount", amount);
+            dateAmount.put("date", valueDate);
 
             System.out.println("Advice work!");
-            return advice;
+            return dateAmount;
         }else {
              return null;
         }

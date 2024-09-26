@@ -109,11 +109,6 @@
             <version>8.10.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers-common</artifactId>
-            <version>8.10.1</version>
-        </dependency>
 
         <dependency>
             <groupId>org.apache.lucene</groupId>
