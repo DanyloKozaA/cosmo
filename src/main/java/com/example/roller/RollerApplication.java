@@ -3,6 +3,7 @@ package com.example.roller;
 import com.example.roller.controllerRoller.ControllerClass;
 import com.example.roller.convertor.Convertor;
 
+import com.example.roller.entity.CosmoFile;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import nu.pattern.OpenCV;
@@ -37,9 +38,12 @@ public class RollerApplication {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
         //Egor
-         controller.getAllFiles("C:\\Users\\GameOn\\Desktop\\AAA\\j\\a1.pdf","UBS");
+//         controller.getAllFiles("C:\\Users\\GameOn\\Desktop\\AAA\\j\\a1.pdf","UBS");
         //Danylo
-        // controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2023 06 30 Statement 60P.USD.pdf","UBS");
+        ArrayList<CosmoFile> files = controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2023 06 30 Statement 60P.USD.pdf","UBS");;
+        ArrayList<CosmoFile> sorted = controller.sort(files);
+
+
 
 
     }

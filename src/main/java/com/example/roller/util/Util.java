@@ -1,6 +1,5 @@
 package com.example.roller.util;
 
-import com.example.roller.entity.Advice;
 import com.example.roller.entity.Transaction;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -18,20 +17,31 @@ import java.util.regex.Pattern;
 
 public class Util {
 
-    public static List<String> findDates(String input) {
-        List<String> dates = new ArrayList<>();
+    public static String getMonthAccountStatement(String input){
+        try{
+            Pattern pattern = Pattern.compile("Monthly: number (\\d+)");
+            Matcher matcher = pattern.matcher(input);
 
-        // Regex pattern to match dates in the format dd.MM.yyyy or dd.MM.yyyy-dd.MM.yyyy
-        String datePattern = "\\b\\d{2}\\.\\d{2}\\.\\d{4}(?:-\\d{2}\\.\\d{2}\\.\\d{4})?\\b";
-        Pattern pattern = Pattern.compile(datePattern);
-        Matcher matcher = pattern.matcher(input);
-
-        // Find all matches and add them to the list
-        while (matcher.find()) {
-            dates.add(matcher.group());
+            if (matcher.find()) {
+                String month = matcher.group(0);
+                return month;
+            }
+        }catch (Exception e){
+            e.printStackTrace();
         }
 
-        return dates;
+        return null;
+    }
+    public static String findDates(String input) {
+
+        String dateRangePattern = "\\d{2}.\\d{2}.\\d{4}.*?\\d{2}.\\d{2}.\\d{4}";
+        Pattern pattern = Pattern.compile(dateRangePattern);
+        Matcher matcher = pattern.matcher(input);
+
+        while (matcher.find()) {
+           return matcher.group(0);
+        }
+      return null;
     }
 
     public static double StringToNumber(String a){
@@ -57,6 +67,7 @@ public class Util {
         return input.replaceAll("^[^a-zA-Z0-9]+", "");
     }
 
+
     public static HashMap getPageInfo(String line) {
         Pattern pattern = Pattern.compile("Page (\\d+)/(\\d+)");
         Matcher matcher = pattern.matcher(line);
@@ -76,7 +87,7 @@ public class Util {
         Pattern pattern = Pattern.compile("Client no\\.\\s*(\\d+-\\d+)");
         Matcher matcher = pattern.matcher(line);
         if (matcher.find()) {
-            String clientNumber = matcher.group(1);
+            String clientNumber = matcher.group(1).replaceAll("-", "");
             return clientNumber;
         } else {
             return null;
@@ -184,12 +195,12 @@ public class Util {
     public static BufferedImage convertPDFToImage(File pdfFile) throws IOException {
         try (PDDocument document = PDDocument.load(pdfFile)) {
             PDFRenderer pdfRenderer = new PDFRenderer(document);
-            return pdfRenderer.renderImageWithDPI(0, 800, ImageType.RGB);
+            return pdfRenderer.renderImageWithDPI(0, 300, ImageType.RGB);
         }
     }
 
 
-    public static String extractFiterforDebitAdvice(String line){
+    public static String extractDateAdvice(String line){
         String regex = "(\\D{5}\\s{1,3}\\D{6}\\s+\\D{8}\\s{1,3}\\D{2})\\s+(\\d{1,2}\\s{1,3}\\D+\\s{1,3}\\d{4})";
         Pattern patternDate = Pattern.compile(regex);
         Matcher matcherDate = patternDate.matcher(line);
@@ -203,53 +214,47 @@ public class Util {
     }
 
 
-    public static Transaction notOrdinaryTransaction(String line){
-        String regex = "(.{2}\\..{2}\\..{2})[\\D ]+\\s*\\.*\\D*\\s*([\\d ]*.+\\..{2})\\s*\\.?.*\\D*\\s*(.{2}\\..{2}\\..{2})\\s*\\.*\\D*\\s*([\\d ]+.+\\..{2})";
-        Pattern patternDate = Pattern.compile(regex);
-        Matcher matcherDate = patternDate.matcher(line);
 
-        if (matcherDate.find()){
-            String cashEffect = matcherDate.group(2).replace(" ", "");
-            String valueDate = matcherDate.group(3).replace(" ", "");
-            String balance = matcherDate.group(4).replace(" ", "");
 
-            Transaction transaction = new Transaction();
-            transaction.setCashEffect(cashEffect);
-            transaction.setValueDate(valueDate);
-            transaction.setBalance(balance);
-
-            return transaction;
-        }else {
-            return null;
-        }
-    }
 
 
 
     public static Transaction extractTransactions(String line) {
-        String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2})[\\D ]+\\s*\\.*\\D*\\s*([\\d ]*\\d+\\.\\d{2})\\s*\\.*\\D*\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s*\\.*\\D*\\s*([\\d ]+\\d{3}\\.\\d{2})";
-        Pattern pattern = Pattern.compile(transactionPattern);
-        Matcher matcher = pattern.matcher(line);
+        try {
+            String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2}).*?([\\d ]+\\.\\d{2}).*?(\\d{2}\\.\\d{2}\\.\\d{2}).*?([\\d ]+\\.\\d{2})";
 
-        if (matcher.find()) {
-            String cashEffect = matcher.group(2).replace(" ", "");
-            String valueDate = matcher.group(3).replace(" ", "");
-            String balance = matcher.group(4).replace(" ", "");
-
-            Transaction transaction = new Transaction();
-            transaction.setCashEffect(cashEffect);
-            transaction.setValueDate(valueDate);
-            transaction.setBalance(balance);
+            Pattern pattern = Pattern.compile(transactionPattern);
+            Matcher matcher = pattern.matcher(line);
 
 
-            System.out.println("First Value: " + cashEffect);
-            System.out.println("Second Date: " + valueDate);
-            System.out.println("Second Value: " + balance);
-            return transaction;
-        } else {
-            return null;
+            if (matcher.find()) {
+                String cashEffect = matcher.group(2).replace(" ", "");
+                String valueDate = matcher.group(3).replace(" ", "");
+                String balance = matcher.group(4).replace(" ", "");
+
+                String formattedValueDate = formatDate(valueDate);
+
+                Transaction transaction = new Transaction();
+                transaction.setAmount(cashEffect);
+                transaction.setValueDate(formattedValueDate);
+                transaction.setBalance(balance);
+                return transaction;
+            }
+
+
+        } catch (Exception e) {
+            System.out.println(e + " error");
         }
+        return null;
     }
+
+    private static String formatDate(String valueDate) throws ParseException {
+        SimpleDateFormat inputFormat = new SimpleDateFormat("dd.MM.yy");
+        SimpleDateFormat outputFormat = new SimpleDateFormat("dd.MM.yyyy");
+        Date date = inputFormat.parse(valueDate);
+        return outputFormat.format(date);
+    }
+
 
 
 
@@ -319,7 +324,9 @@ public class Util {
 
         if (matcherDate.find()){
             String date = matcherDate.group(2);
-
+            System.out.println(date);
+            System.out.println(line);
+            System.out.println("ssazzzzvccxcv");
             return date;
         }else {
             return null;
@@ -389,7 +396,7 @@ public class Util {
         }
     }
 
-    public static HashMap extractAdviceStatement(String line){
+    public static HashMap extractDataAdviceStatement(String line){
         String regex = "(\\D{6}\\s{1,3}\\D{7}\\s{1,4}\\d{3}\\W\\d{6}\\.\\d{2}\\D)\\s+\\D{5}\\s{1,4}(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]\\D{3}\\s+([\\d ]*\\d+\\.\\d{1,2})";
 
         Pattern pattern = Pattern.compile(regex);
@@ -407,95 +414,87 @@ public class Util {
         }
     }
 
-    public static HashMap extractAdviceCotractNote(String line){
-        String regex = "(\\D{5}\\s{1,3}\\D{4}\\s{1,3})(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]\\D{3}\\s+([\\d ]*\\d+\\.\\d{1,2})";
+    public static HashMap extractDataContractNote(String line){
+        String regex = "(In favour of account|To the debit of account).*?Value date\\s*(\\d{2}\\.\\d{2}\\.\\d{4}).*?USD\\s*([\\d\\s,]+(?:\\.\\d{2})?)";
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+
+        HashMap<String, String> resultMap = new HashMap<>();
+
+        if (matcher.find()) {
+            String valueDate = matcher.group(2);
+            String amount = matcher.group(3).replaceAll("[\\s,]", "");
+            resultMap.put("valueDate", valueDate);
+            resultMap.put("amount", amount);
+        }
+        return resultMap;
+     }
+
+
+    public static String extractAmountConfirmation(String line){
+        String regex = "[A-Z]{3}\\s[1-9][0-9]{0,2}(?:,[0-9]{3})*(?:\\.\\d{2})?";
+
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String date = matcher.group(2);
-            String amount = matcher.group(3).replace(" ","");
-            HashMap<String,String> dateAmount = new HashMap<>();
-            dateAmount.put("date",date);
-            dateAmount.put("amount",amount);
-             return dateAmount;
-        }else {
-        return null;
-    }
-     }
-
-
-    public static String extractAdviceConfarmationMetalData(String line){
-        String regex = "(\\w{10}\\s{1,2}\\w{4}\\s+.)\\s+(\\d{1,2})\\s{1,3}(\\w+)\\s{1,3}(\\d{4})";
-
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(line);
-
-        if (matcher.find()) {
-            String data;
-            String month = filterForDate(matcher.group(3).trim().toLowerCase(Locale.ROOT));
-            if (month != null) {
-                if(matcher.group(2).length()<2){
-                    String zero = "0" + matcher.group(2);
-                    data = zero + "." + month + "." + matcher.group(4);
-                    return data;
-                }else {
-                    data = matcher.group(2) + "." + month + "." + matcher.group(4);
-                    return data;
-                }
-            }else {
-                return null;
-            }
+            String amount = matcher.group(0);
+            return amount;
         }else {
             return null;
         }
     }
 
 
-    public static String filterForDate(String date){
-        switch (date) {
+    public static String getMonthNumberFromString(String moth){
+        switch (moth.toLowerCase()) {
             case "january":
-                date = "01";
-                break;
+                return "01";
             case "february":
-                date = "02";
-                break;
+                return "02";
             case "march":
-                date = "03";
-                break;
+                return "03";
             case "april":
-                date = "04";
-                break;
+                return "04";
             case "may":
-                date = "05";
-                break;
+                return "05";
             case "june":
-                date = "06";
-                break;
+                return "06";
             case "july":
-                date = "07";
-                break;
+                return "07";
             case "august":
-                date = "08";
-                break;
+                return "08";
             case "september":
-                date = "09";
-                break;
+                return "09";
             case "october":
-                date = "10";
-                break;
+                return "10";
             case "november":
-                date = "11";
-                break;
+                return "11";
             case "december":
-                date = "12";
-                break;
+                return "12";
             default:
-                date = null;
+                moth = null;
         }
-        return date;
+        return moth;
     }
 
+    public static String getSettlementDate(String line) {
+        String regex = "\\b(\\d{1,2})\\s+(January|February|March|April|May|June|July|August|September|October|November|December)\\s+(\\d{4})\\b";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+
+        if (matcher.find()) {
+            String day = matcher.group(1);
+            String monthString = matcher.group(2);
+            String year = matcher.group(3);
+            String monthNumber = getMonthNumberFromString(monthString);
+            String formattedDate =   day +"." + monthNumber+"." + year;
+            return formattedDate;
+        } else {
+            return null;
+        }
+    }
 
 
     public static String extractAdviceConfarmationData(String line) {
@@ -506,7 +505,7 @@ public class Util {
 
         if (matcher.find()) {
             String data;
-            String month = filterForDate(matcher.group(3).trim().toLowerCase(Locale.ROOT));
+            String month = getMonthNumberFromString(matcher.group(3).trim().toLowerCase(Locale.ROOT));
             if (month != null) {
                 if(matcher.group(2).length()<2){
                     String zero = "0" + matcher.group(2);
@@ -605,25 +604,19 @@ public class Util {
     }
 
 
-
-    public static HashMap extractAdviceCalculator(String line){
-
-        String advicePattern = "^(?!\\d{2}\\.\\d{2}\\.\\d{2})(\\D+\\s{2,})\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]*\\d+\\.\\d+)";
-        Pattern pattern = Pattern.compile(advicePattern);
-        Matcher mather = pattern.matcher(line);
-        if(mather.find()){
-            String amount = mather.group(3).replace(" ", "");
-            String valueDate = mather.group(2);
-            HashMap dateAmount = new HashMap();
-            dateAmount.put("amount", amount);
-            dateAmount.put("date", valueDate);
-
-            System.out.println("Advice work!");
-            return dateAmount;
-        }else {
-             return null;
+    public static String extractInterestCalculationAdviceAmount(String line) {
+        try {
+            String advicePattern = "^(?!\\d{2}\\.\\d{2}\\.\\d{2})(\\D+\\s{2,})\\s*(\\d{2}\\.\\d{2}\\.\\d{2})\\s+([\\d ]*\\d+\\.\\d+)";
+            Pattern pattern = Pattern.compile(advicePattern);
+            Matcher mather = pattern.matcher(line);
+            if (mather.find()) {
+                String amount = mather.group(3).replace(" ", "");
+                return amount;
+            }
+        } catch (Exception e) {
+            System.out.println(e);
         }
-
+        return null;
     }
 
 }

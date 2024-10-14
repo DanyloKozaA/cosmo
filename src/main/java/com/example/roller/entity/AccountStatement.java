@@ -9,15 +9,14 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.criteria.CriteriaBuilder;
 import java.util.ArrayList;
+import java.util.List;
 
-@NoArgsConstructor
+
 @Data
-public class AccountStatement {
- @Id
- @GeneratedValue(strategy = GenerationType.IDENTITY)
- private String id;
- private String clientNo;
+@AllArgsConstructor
+@NoArgsConstructor
+public class AccountStatement extends CosmoFile{
  private ArrayList<Transaction> transactions;
- private String page;
- private String maxPages;
+ private ArrayList<Advice> advices;
+ private String period;
 }

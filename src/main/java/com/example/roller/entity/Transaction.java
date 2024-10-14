@@ -15,9 +15,8 @@ public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String cashEffect;
+    private String amount;
     private String valueDate;
     private String balance;
-    private String TitleId;
-    private String Status;
+    private Boolean Status;
 }
