@@ -21,18 +21,19 @@ import static com.example.roller.util.Util.*;
 
 @Component
 public class Convertor {
-    private final ArrayList<CosmoFile> filesList = new ArrayList<>();
+
 
     public Convertor() {
     }
 
-    public ArrayList<CosmoFile> processFiles(String inputPdfPath, String bankName) throws IOException {
+    public ArrayList<CosmoFile> processFiles(File decodedPdf, String bankName) throws IOException {
         try {
+            ArrayList<CosmoFile> filesList = new ArrayList<>();
 
-            List<File> pdfList = extractPagesToSeparatePDFs(inputPdfPath);
+
+            List<File> pdfList = extractPagesToSeparatePDFs(decodedPdf);
             int cores = Runtime.getRuntime().availableProcessors();
             ExecutorService executorService = Executors.newFixedThreadPool(cores/2);
-            System.out.println(executorService);
 
 
             List<Future<?>> futures = new ArrayList<>();
@@ -42,7 +43,6 @@ public class Convertor {
                 int index = i;
 
                 Future<?> future = executorService.submit(() -> {
-                    System.out.println(executorService);
                     try {
                         Tesseract threadTesseract = new Tesseract();
                         threadTesseract.setOcrEngineMode(1);
@@ -54,7 +54,7 @@ public class Convertor {
                         String encodedImage = encodeImage(image, "jpg");
                         image.flush();
                         String text = threadTesseract.doOCR(image);
-                        processTextUBS(text, index, encodedImage);
+                        processTextUBS(text, index, encodedImage,filesList);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -84,7 +84,19 @@ public class Convertor {
                 System.out.println("Executor service interrupted during shutdown");
             }
 
-//            System.out.println(filesList.size());
+         System.out.println(filesList.size() + "size");
+            System.out.println(filesList);
+            for (int i = 0; i < filesList.size() - 1; i++) {
+                for (int j = 0; j < filesList.size() - i - 1; j++) {
+                    if (filesList.get(j).getInitialIndex() > filesList.get(j + 1).getInitialIndex()) {
+                        // Swap cosmoList[j] and cosmoList[j + 1]
+                        CosmoFile temp = filesList.get(j);
+                        filesList.set(j, filesList.get(j + 1));
+                        filesList.set(j + 1, temp);
+                    }
+                }
+            }
+
             return filesList;
         } catch (Exception e) {
             System.out.println(e);
@@ -106,7 +118,7 @@ public class Convertor {
         return base64Image;
     }
 
-    private String processTextUBS(String text,Integer index,String encodedImage){
+    private String processTextUBS(String text,Integer index,String encodedImage,ArrayList<CosmoFile> filesList){
         try {
             List lines = Arrays.stream(text.split("\\n")).toList();
             ArrayList<String> arrayList = new ArrayList<>(lines);
@@ -114,34 +126,41 @@ public class Convertor {
             String currentPage = null;
             String maxPage = null;
             String clientNo = null;
+            String producedOn = null;
 
-            for(int b = arrayList.size() - 1; b >= 0; b--){
-                String line = arrayList.get(b).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
-                HashMap info = getPageInfo(line);
-                if (info != null) {
-                     currentPage = (String) info.get("currentPage");
-                     maxPage = (String) info.get("totalPages");
-                     break;
-                }
-            }
 
+
+            CosmoFile cosmoFile = new CosmoFile();
 
             for (int i = 0; i < arrayList.size(); i++) {
 
-                String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
 
+                String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
 
                 if (clientNo == null){
                     clientNo = getClientNo(line);
                 }
 
+                if (producedOn == null){
+                    producedOn = extractProducedOn(line);
+                }
+
+                HashMap info = getPageInfo(line);
+                if (info != null) {
+                    currentPage = (String) info.get("currentPage");
+                    maxPage = (String) info.get("totalPages");
+                }
+
+
 
                 if (approxContains(line, "Account Statement", 2)) {
-                    AccountStatement accountStatement = new AccountStatement();
                     String period = findDates(line);
                     if (period == null){
-                         period = findDates(arrayList.get(i +1));
+                        period = findDates(arrayList.get(i +1));
                     }
+                    if (period != null){
+
+                    AccountStatement accountStatement = new AccountStatement();
                     accountStatement.setPeriod(period);
                     ArrayList<Transaction> transactions = new ArrayList<>();
                     ArrayList<Advice> advices = new ArrayList<>();
@@ -189,11 +208,8 @@ public class Convertor {
                     accountStatement.setTransactions(transactions);
                     accountStatement.setAdvices(advices);
                     found = true;
-                    accountStatement.setInitialIndex(index);
-                    accountStatement.setEncodedImage(encodedImage);
-                    filesList.add(accountStatement);
-                    break;
-                }
+                    cosmoFile.appObject = accountStatement;
+                }}
 
 
 
@@ -203,21 +219,27 @@ public class Convertor {
                     String data = extractAdviceCustodyFeeDate(innerLine);
                     for (int j = i; j < arrayList.size(); j++) {
                             String innerLine2 = arrayList.get(j);
-                            if (approxContains(innerLine2, "Debit custody fee", 2) || approxContains(innerLine2, "Debit mandate fee", 2)) {
+                            if (approxContains(innerLine2, "Debit custody fee", 2)) {
                                 String amount = extractAdviceCustodyFeeAmount(innerLine2);
                                 if (amount != null) {
                                     advice.setAmount(amount);
                                     advice.setValueDate(data);
-                                    advice.setType(innerLine2);
+                                    advice.setType("Debit custody fee");
+                                    break;
+                                }
+                            }else if (approxContains(innerLine2, "Debit mandate fee", 2)){
+                                String amount = extractAdviceCustodyFeeAmount(innerLine2);
+                                if (amount != null) {
+                                    advice.setAmount(amount);
+                                    advice.setValueDate(data);
+                                    advice.setType("Debit mandate fee");
                                     break;
                                 }
                             }
                     }
                     found = true;
-                    advice.setInitialIndex(index);
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
+
                 }
 //
 //
@@ -244,10 +266,7 @@ public class Convertor {
                         }
                     }
                     found = true;
-                    advice.setInitialIndex(index);
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
                 }
 
 
@@ -273,10 +292,7 @@ public class Convertor {
 
                     }
                     found = true;
-                    advice.setInitialIndex(index);
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
                 }
 
                 if (approxContains(line, "Confirmation of Amendment", 2) && approxContains(arrayList.get(i + 1), "Produced on", 2)) {
@@ -297,10 +313,7 @@ public class Convertor {
 
                     }
                     found = true;
-                    advice.setInitialIndex(index);
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
                 }
 
 
@@ -309,10 +322,6 @@ public class Convertor {
                 if (approxContains(line, "Contract note", 2) && approxContains(line, "Produced on", 2)) {
                     Advice advice = new Advice();
                     advice.setType("Contract Note");
-                    advice.setPage(currentPage);
-                    advice.setInitialIndex(index);
-                    advice.setMaxPages(maxPage);
-                    advice.setClientNo(clientNo);
                     for (int j = i; j < arrayList.size(); j++) {
                         String innerLine = arrayList.get(j);
                         if (approxContains(innerLine, "In favour of account", 2) || approxContains(innerLine, "To the debit of account", 2)) {
@@ -326,18 +335,12 @@ public class Convertor {
                         }
                     }
                     found = true;
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
                 }
 //
                 if (approxContains(line, "Advice/Statement", 2) && approxContains(line, "Produced on", 2)) {
                     Advice advice = new Advice();
                     advice.setType("Advice/Statement");
-                    advice.setPage(currentPage);
-                    advice.setMaxPages(maxPage);
-                    advice.setClientNo(clientNo);
-                    advice.setInitialIndex(index);
                     for (int j = i; j < arrayList.size(); j++) {
                         String innerLine = arrayList.get(j);
                         if (approxContains(innerLine, "CREDIT ACCOUNT", 2)) {
@@ -352,21 +355,31 @@ public class Convertor {
                         }
                     }
                     found = true;
-                    advice.setEncodedImage(encodedImage);
-                    filesList.add(advice);
-                    break;
+                    cosmoFile.appObject = advice;
                 }
+
+
             }
+            cosmoFile.setPage(currentPage);
+            cosmoFile.setMaxPages(maxPage);
+            cosmoFile.setClientNo(clientNo);
+            cosmoFile.setInitialIndex(index);
+            cosmoFile.setEncodedImage(encodedImage);
+            cosmoFile.setProducedOn(producedOn);
+
             if (!found){
-                CosmoFile cosmoFile = new CosmoFile();
-                cosmoFile.setPage(currentPage);
-                cosmoFile.setMaxPages(maxPage);
-                cosmoFile.setClientNo(clientNo);
-                cosmoFile.setInitialIndex(index);
-                cosmoFile.setType("not found");
-                cosmoFile.setEncodedImage(encodedImage);
-                filesList.add(cosmoFile);
+
+                if (!Objects.equals(currentPage, "1") && currentPage != null){
+                    Advice advice = new Advice();
+                    advice.setType("second or other page");
+                    cosmoFile.appObject = advice;
+                }else {
+                    cosmoFile.setType("not found");
+                }
+
             }
+            System.out.println(cosmoFile.getInitialIndex()  + "fsdfsdf");
+            filesList.add(cosmoFile);
 
             return null;
         }catch (Exception e){
@@ -479,7 +492,6 @@ public class Convertor {
                   }));
               }));
           }));
-          System.out.println(sorted.size() + "sortedSize");
             return null;
         }catch (Exception e){
             System.out.println(e +"error");

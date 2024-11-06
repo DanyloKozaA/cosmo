@@ -33,17 +33,12 @@ import java.util.stream.Collectors;
 public class RollerApplication {
     public static void main(String[] args) {
         SpringApplication.run(RollerApplication.class, args);
-        Convertor convertor = new Convertor();
-        ControllerClass controller = new ControllerClass(convertor);
+//        Convertor convertor = new Convertor();
+//        ControllerClass controller = new ControllerClass(convertor);
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-
-        //Egor
-//         controller.getAllFiles("C:\\Users\\GameOn\\Desktop\\AAA\\j\\a1.pdf","UBS");
-        //Danylo
-        ArrayList<CosmoFile> files = controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2023 06 30 Statement 60P.USD.pdf","UBS");;
-        ArrayList<CosmoFile> sorted = controller.sort(files);
-
-
+//
+//        ArrayList<CosmoFile> files = controller.getAllFiles("C:\\Users\\Danylo\\Downloads\\2023 06 30 Statement 60P.USD.pdf","UBS");;
+//        ArrayList<CosmoFile> sorted = controller.sort(files);
 
 
     }

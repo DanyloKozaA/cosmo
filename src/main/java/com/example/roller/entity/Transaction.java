@@ -14,8 +14,8 @@ import javax.persistence.Id;
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    private String amount;
+    protected Long id;
+    protected String amount;
     private String valueDate;
     private String balance;
     private Boolean Status;

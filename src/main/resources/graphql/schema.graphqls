@@ -7,7 +7,7 @@ type Transaction {
 }
 
 type Query {
-    getAllFiles(path: String, bankName: String): String
+    getAllFiles(pdf: String, bankName: String): String
 
 }
 

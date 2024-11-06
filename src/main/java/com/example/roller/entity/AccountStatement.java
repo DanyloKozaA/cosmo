@@ -16,7 +16,9 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AccountStatement extends CosmoFile{
- private ArrayList<Transaction> transactions;
- private ArrayList<Advice> advices;
- private String period;
+  protected ArrayList<Transaction> transactions;
+  protected ArrayList<Advice> advices;
+  protected String period;
+  protected String appObjectType = "AccountStatement";
+
 }

@@ -14,15 +14,16 @@ import javax.persistence.Id;
 public class CosmoFile {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String type;
-    private String page;
-    private String maxPages;
-    private String clientNo;
-    private Boolean Status;
-    private Integer InitialIndex;
-    private String encodedImage;
+    public Long id;
+    public String type;
+    public String page;
+    public String maxPages;
+    public String clientNo;
+    public Boolean Status;
+    public Integer InitialIndex;
+    public String encodedImage;
+    public String producedOn;
+    public Object appObject;
 
 
 }

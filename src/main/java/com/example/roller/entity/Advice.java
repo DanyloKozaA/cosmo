@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Advice extends CosmoFile {
-    private String valueDate;
-    private String Amount;
+    protected String valueDate;
+    protected String amount;
+    protected String type;
+    protected String appObjectType = "Advice";
 }

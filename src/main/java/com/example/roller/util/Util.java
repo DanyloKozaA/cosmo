@@ -34,12 +34,15 @@ public class Util {
     }
     public static String findDates(String input) {
 
-        String dateRangePattern = "\\d{2}.\\d{2}.\\d{4}.*?\\d{2}.\\d{2}.\\d{4}";
+        String dateRangePattern = "\\d{2}.\\d{2}.\\d{4}.*?(\\d{2}.\\d{2}.\\d{4})";
         Pattern pattern = Pattern.compile(dateRangePattern);
         Matcher matcher = pattern.matcher(input);
 
         while (matcher.find()) {
-           return matcher.group(0);
+            System.out.println(matcher.group(0));
+            System.out.println(matcher.group(1));
+            System.out.println("sdfsdfsdfsdfsdfz");
+           return matcher.group(1);
         }
       return null;
     }
@@ -49,23 +52,8 @@ public class Util {
         double number = Double.parseDouble(a);
         return number;
     }
-    public static Date StringToDate(String dateStr){
-        String pattern = "dd-MM-yyyy";
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-        try {
-            // Преобразуем строку в дату
-            Date date = simpleDateFormat.parse(dateStr);
-            System.out.println(date);
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
 
-    public static String removeUntilLetterOrNumber(String input) {
-        // Using regular expression to replace everything until the first letter or number
-        return input.replaceAll("^[^a-zA-Z0-9]+", "");
-    }
+
 
 
     public static HashMap getPageInfo(String line) {
@@ -171,12 +159,9 @@ public class Util {
         }
         return binaryImage;
     }
-    public static List<File> extractPagesToSeparatePDFs(String inputPdfPath) throws IOException {
+    public static List<File> extractPagesToSeparatePDFs(File decodedPdf) throws IOException {
         List<File> pdfFiles = new ArrayList<>();
-        File pdfFile = new File(inputPdfPath);
-        if (!pdfFile.exists()) {
-            throw new IOException("File not found: " + inputPdfPath);
-        }
+        File pdfFile = decodedPdf;
         try (PDDocument document = PDDocument.load(pdfFile)) {
             int totalPages = document.getNumberOfPages();
             for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -192,6 +177,23 @@ public class Util {
         return pdfFiles;
     }
 
+    public static String extractAmountAdviceTotalInterest(String input){
+
+        String regex = "(\\d+[\\d\\s]*\\.?\\d*)";
+
+
+        Pattern pattern = Pattern.compile(regex);
+
+        Matcher matcher = pattern.matcher(input);
+
+        // Loop to find all matches
+        while (matcher.find()) {
+            // Remove spaces from the matched number and print it
+            String number = matcher.group().replaceAll("\\s", "");
+            return number;
+        }
+        return null;
+    }
     public static BufferedImage convertPDFToImage(File pdfFile) throws IOException {
         try (PDDocument document = PDDocument.load(pdfFile)) {
             PDFRenderer pdfRenderer = new PDFRenderer(document);
@@ -324,9 +326,6 @@ public class Util {
 
         if (matcherDate.find()){
             String date = matcherDate.group(2);
-            System.out.println(date);
-            System.out.println(line);
-            System.out.println("ssazzzzvccxcv");
             return date;
         }else {
             return null;
@@ -497,31 +496,26 @@ public class Util {
     }
 
 
-    public static String extractAdviceConfarmationData(String line) {
-        String regex = "(\\D{7}\\s{1,3}\\D{7}\\s{1,3}\\D{4})\\s+\\W\\s*(\\d{1,2})\\s*(\\D+)\\s*(\\d{4})";
+    public static String extractProducedOn(String input) {
+        String regex = ".*Produced.*on.*(\\d{1,2}).*(January|February|March|April|May|June|July|August|September|October|November|December).*(\\d{4}).*";
+
 
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(line);
+        Matcher matcher = pattern.matcher(input);
 
         if (matcher.find()) {
-            String data;
-            String month = getMonthNumberFromString(matcher.group(3).trim().toLowerCase(Locale.ROOT));
-            if (month != null) {
-                if(matcher.group(2).length()<2){
-                    String zero = "0" + matcher.group(2);
-                    data = zero + "." + month + "." + matcher.group(4);
-                    return data;
-                }else {
-                    data = matcher.group(2) + "." + month + "." + matcher.group(4);
-                    return data;
-                }
-            }else {
-                return null;
+            String day = matcher.group(1);
+            String month = matcher.group(2);
+            String year = matcher.group(3);
+            if (day.length() == 1){
+                day = "0"+day;
             }
-        }else {
-            return null;
-        }
 
+            String monthNumber = getMonthNumberFromString(month);
+            return day +"." + monthNumber+"." + year;
+        }  else {
+         return null;
+        }
     }
 
 
