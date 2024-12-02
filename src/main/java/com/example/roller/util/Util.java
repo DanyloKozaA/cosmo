@@ -57,18 +57,41 @@ public class Util {
 
 
     public static HashMap getPageInfo(String line) {
-        Pattern pattern = Pattern.compile("Page (\\d+)/(\\d+)");
-        Matcher matcher = pattern.matcher(line);
+        try {
+            Pattern pattern = Pattern.compile("Page (\\d+)/(\\d+)");
+            Matcher matcher = pattern.matcher(line);
 
-        if (matcher.find()) {
-            String currentPage = matcher.group(1);
-            String totalPages = matcher.group(2);
-            HashMap <String, String>info = new HashMap<>();
-            info.put("currentPage",currentPage);
-            info.put("totalPages",totalPages);
-            return info;
+            HashMap <String, String> info = null;
+
+            if (matcher.find()) {
+                String currentPage = matcher.group(1);
+                String totalPages = matcher.group(2);
+                info = new HashMap<>();
+                info.put("currentPage",currentPage);
+                info.put("totalPages",totalPages);
+                return info;
+            }
+
+            Pattern secondPattern = Pattern.compile("Form without signature.*(\\d+)/(\\d+)");
+            Matcher secondMatcher = secondPattern.matcher(line);
+
+            if (secondMatcher.find()) {
+                String currentPage = secondMatcher.group(1);
+                String totalPages = secondMatcher.group(2);
+                info = new HashMap<>();
+                info.put("currentPage",currentPage);
+                info.put("totalPages",totalPages);
+                return info;
+            }
+
+            return null;
+        }catch (Exception e){
+            System.out.println("error");
+            System.out.println(e);
+            e.printStackTrace();
+            return null;
         }
-        return null;
+
     }
 
     public static String getClientNo(String line){
@@ -364,7 +387,30 @@ public class Util {
         }
     }
 
+    //all numbers    ([\d ]*\d+\.\d+)
 
+    public static Boolean stringStartFromProducedOn(String line){
+        String regex = "^Produced on.*";
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+        if(matcher.matches()){
+            return true;
+        }else {
+            return false;
+        }
+    }
+    public static String extractAdviceTotalInterestAmount(String line){
+        String regex = "Total.*interest.*(\\d+).*([A-Z]{3})\\s+([\\d ]*\\d+\\.\\d+)";
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+        if(matcher.find()){
+            return matcher.group(3);
+        }else {
+            return null;
+        }
+    }
     public static String extractAdviceDebitAdviceDate(String line){
 
         String regex = "(\\D{3}\\W\\s+)(\\d{2}\\.\\d{2}\\.\\d{4})";
@@ -396,14 +442,15 @@ public class Util {
     }
 
     public static HashMap extractDataAdviceStatement(String line){
-        String regex = "(\\D{6}\\s{1,3}\\D{7}\\s{1,4}\\d{3}\\W\\d{6}\\.\\d{2}\\D)\\s+\\D{5}\\s{1,4}(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]\\D{3}\\s+([\\d ]*\\d+\\.\\d{1,2})";
+        String regex = "(\\d{2}\\.\\d{2}\\.\\d{4})\\s+[A-Z]{3}\\s+([\\d ]+\\d+\\.\\d{2})";
+
 
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String date = matcher.group(2);
-            String amount = matcher.group(3).replace(" ","");
+            String date = matcher.group(1);
+            String amount = matcher.group(2).replace(" ","");
             HashMap<String,String> dateAmount = new HashMap<>();
               dateAmount.put("date",date);
               dateAmount.put("amount",amount);
@@ -413,8 +460,9 @@ public class Util {
         }
     }
 
-    public static HashMap extractDataContractNote(String line){
-        String regex = "(In favour of account|To the debit of account).*?Value date\\s*(\\d{2}\\.\\d{2}\\.\\d{4}).*?USD\\s*([\\d\\s,]+(?:\\.\\d{2})?)";
+    public static HashMap<String, String> extractDataContractNote(String line) {
+        // Updated regex to capture any 3-letter currency code
+        String regex = "(In favour of account|To the debit of account).*?Value date\\s*(\\d{2}\\.\\d{2}\\.\\d{4}).*?([A-Z]{3})\\s*([\\d\\s,]+(?:\\.\\d{2})?)";
 
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(line);
@@ -422,14 +470,29 @@ public class Util {
         HashMap<String, String> resultMap = new HashMap<>();
 
         if (matcher.find()) {
-            String valueDate = matcher.group(2);
-            String amount = matcher.group(3).replaceAll("[\\s,]", "");
+            String valueDate = matcher.group(2); // Capture Value date
+            String currency = matcher.group(3); // Capture the currency
+            String amount = matcher.group(4).replaceAll("[\\s,]", ""); // Capture and clean the amount
+
             resultMap.put("valueDate", valueDate);
+            resultMap.put("currency", currency);
             resultMap.put("amount", amount);
         }
         return resultMap;
-     }
+    }
 
+    public static boolean  containsAdviceStatementText(String line){
+        String regex = "Advice.*Statement";
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+
+        if(matcher.find()){
+            return true;
+        }else {
+            return false;
+        }
+    }
 
     public static String extractAmountConfirmation(String line){
         String regex = "[A-Z]{3}\\s[1-9][0-9]{0,2}(?:,[0-9]{3})*(?:\\.\\d{2})?";
@@ -446,37 +509,24 @@ public class Util {
     }
 
 
-    public static String getMonthNumberFromString(String moth){
-        switch (moth.toLowerCase()) {
-            case "january":
-                return "01";
-            case "february":
-                return "02";
-            case "march":
-                return "03";
-            case "april":
-                return "04";
-            case "may":
-                return "05";
-            case "june":
-                return "06";
-            case "july":
-                return "07";
-            case "august":
-                return "08";
-            case "september":
-                return "09";
-            case "october":
-                return "10";
-            case "november":
-                return "11";
-            case "december":
-                return "12";
-            default:
-                moth = null;
+    private static String getMonthNumberFromString(String month) {
+        switch (month.toLowerCase()) {
+            case "january": return "01";
+            case "february": return "02";
+            case "march": return "03";
+            case "april": return "04";
+            case "may": return "05";
+            case "june": return "06";
+            case "july": return "07";
+            case "august": return "08";
+            case "september": return "09";
+            case "october": return "10";
+            case "november": return "11";
+            case "december": return "12";
+            default: return null; // Handle invalid month
         }
-        return moth;
     }
+
 
     public static String getSettlementDate(String line) {
         String regex = "\\b(\\d{1,2})\\s+(January|February|March|April|May|June|July|August|September|October|November|December)\\s+(\\d{4})\\b";
@@ -497,26 +547,28 @@ public class Util {
 
 
     public static String extractProducedOn(String input) {
-        String regex = ".*Produced.*on.*(\\d{1,2}).*(January|February|March|April|May|June|July|August|September|October|November|December).*(\\d{4}).*";
-
+        String regex = ".*Produced\\s*on\\s*([12]?[0-9]|3[01])\\s+(January|February|March|April|May|June|July|August|September|October|November|December)\\s+(\\d{4}).*";
 
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(input);
+        Matcher matcher = pattern.matcher(input.trim()); // Trim input to remove extra spaces
 
         if (matcher.find()) {
-            String day = matcher.group(1);
-            String month = matcher.group(2);
-            String year = matcher.group(3);
-            if (day.length() == 1){
-                day = "0"+day;
+            String day = matcher.group(1).trim(); // Trim in case of extra spaces
+            String month = matcher.group(2).trim();
+            String year = matcher.group(3).trim();
+
+            // Add leading zero only if day is a single digit
+            if (day.length() == 1) {
+                day = "0" + day;
             }
 
             String monthNumber = getMonthNumberFromString(month);
-            return day +"." + monthNumber+"." + year;
-        }  else {
-         return null;
+            return day + "." + monthNumber + "." + year;
+        } else {
+            return null;
         }
     }
+
 
 
 

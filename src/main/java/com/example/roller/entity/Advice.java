@@ -12,4 +12,5 @@ public class Advice extends CosmoFile {
     protected String amount;
     protected String type;
     protected String appObjectType = "Advice";
+    protected String confirmationNumber;
 }

@@ -5,6 +5,8 @@ package com.example.roller.controllerRoller;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.example.roller.convertor.Convertor;
 import com.example.roller.entity.CosmoFile;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.opencv.core.Core;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,10 +55,20 @@ public class ControllerClass {
         return null;
     }
     @QueryMapping
-    public ArrayList<CosmoFile> sort(@Argument ArrayList<CosmoFile> filesList) {
-        System.out.println("dd");
+    public ArrayList<CosmoFile> sort(@Argument String data) {
+
+        ArrayList<CosmoFile> filesList = null;
         try {
-            return convertor.sort(filesList);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            CosmoFile[] cosmoFiles = objectMapper.readValue(data, CosmoFile[].class);
+            for (CosmoFile cosmoFile :  cosmoFiles) {
+                System.out.println(cosmoFile.page);
+            }
+//            convertor.sort((ArrayList<CosmoFile>)cosmoFiles);
+            return null;
         } catch (Exception e) {
             e.printStackTrace();
             return null;

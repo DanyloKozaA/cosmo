@@ -8,7 +8,7 @@ type Transaction {
 
 type Query {
     getAllFiles(pdf: String, bankName: String): String
-
+    sort(data: String): String
 }
 
 
