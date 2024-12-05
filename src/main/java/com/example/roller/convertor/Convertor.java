@@ -5,6 +5,7 @@ import com.example.roller.entity.Advice;
 import com.example.roller.entity.CosmoFile;
 import com.example.roller.entity.Transaction;
 import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.TesseractException;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -76,6 +77,7 @@ public class Convertor {
                         BufferedImage image = convertPDFToImage(pdf);
                         String text = threadTesseract.doOCR(image);
 
+
                         if (isEnglishTextValid(text)) {
 //                            System.out.println("valid");
                         } else {
@@ -88,13 +90,20 @@ public class Convertor {
                             }
                         }
 
-//
+
 
                         String encodedImage = encodeImage(image, "jpg");
                         if (text != null) {
                             CosmoFile cosmoFile = processTextUBS(text);
                             cosmoFile.setEncodedImage(encodedImage);
                             cosmoFile.setInitialIndex(index);
+                            if (cosmoFile.page == null || cosmoFile.maxPages == null){
+                                HashMap pageInfo = getPage(threadTesseract,image);
+                                if (pageInfo.get("currentPage") != null){
+                                    cosmoFile.setPage(pageInfo.get("currentPage").toString());
+                                    cosmoFile.setMaxPages(pageInfo.get("totalPages").toString());
+                                }
+                            }
                             filesList.add(cosmoFile);
                         } else {
                             CosmoFile cosmoFile = new CosmoFile();
@@ -146,7 +155,6 @@ public class Convertor {
                 }
             }
 
-            System.out.println(filesList);
             return filesList;
         } catch (Exception e) {
             System.out.println(e);
@@ -154,6 +162,23 @@ public class Convertor {
         }
     }
 
+    public HashMap getPage(Tesseract tesseract,BufferedImage image) throws TesseractException, IOException {
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        // Calculate 12% dimensions
+        int cropWidth = (int) (width * 0.12); // 12% of width
+        int cropHeight = (int) (height * 0.12); // 12% of height
+
+        // Calculate starting coordinates for the crop
+        int cropX = width - cropWidth;  // Start at (total width - 12%)
+        int cropY = height - cropHeight; // Start at (total height - 12%)
+
+        // Crop the image
+        BufferedImage croppedImage = image.getSubimage(cropX, cropY, cropWidth, cropHeight);
+        String text = tesseract.doOCR(croppedImage);
+        return  getPageInfo(text);
+    }
     public static String encodeImage(BufferedImage image, String formatName) {
         String base64Image = "";
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -421,7 +446,6 @@ public class Convertor {
                     maxPage = (String) info.get("totalPages");
                 }
 
-                System.out.println(line);
 
                 if (cosmoFile.appObject == null){
                     if (approxContains(line, "Account Statement", 2)) {
@@ -437,7 +461,6 @@ public class Convertor {
                         cosmoFile = getTotalInterestAdvice(line, lines, i);
                     }
                     else if (line.equals("Confirmation") && arrayList.get(i + 1).contains("Produced on")) {
-                        System.out.println("11123123123123123123");
                         cosmoFile = getConfirmationAdvice(line, lines, i);
                     }
                     else if (approxContains(line, "Confirmation of Amendment", 2) && approxContains(arrayList.get(i + 1), "Produced on", 2)) {
