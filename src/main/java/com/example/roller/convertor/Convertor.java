@@ -99,7 +99,7 @@ public class Convertor {
                             cosmoFile.setInitialIndex(index);
                             if (cosmoFile.page == null || cosmoFile.maxPages == null){
                                 HashMap pageInfo = getPage(threadTesseract,image);
-                                if (pageInfo.get("currentPage") != null){
+                                if (pageInfo != null && pageInfo.get("currentPage") != null){
                                     cosmoFile.setPage(pageInfo.get("currentPage").toString());
                                     cosmoFile.setMaxPages(pageInfo.get("totalPages").toString());
                                 }
