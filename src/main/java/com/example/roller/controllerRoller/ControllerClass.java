@@ -1,28 +1,14 @@
 package com.example.roller.controllerRoller;
 
-
-
-import com.amazonaws.services.s3.transfer.Upload;
 import com.example.roller.convertor.Convertor;
-import com.example.roller.entity.CosmoFile;
-
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.opencv.core.Core;
+import com.example.roller.entity.UBS.AllFilesUBS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 
 @Controller
@@ -34,45 +20,48 @@ public class ControllerClass {
     }
 
     @QueryMapping
-    public String getAllFiles(@Argument String pdf, @Argument String bankName) {
+    public AllFilesUBS getAllFilesUBS(@Argument String pdf) {
         try {
-            System.out.println("getAllFiles");
+            // Decode the Base64-encoded PDF
             byte[] pdfBytes = Base64.getDecoder().decode(pdf);
 
-            String filePath = "generated_output.pdf";
-            File pdfFile = new File(filePath);
+            // Create a temporary file for the PDF
+            File tempPdfFile = File.createTempFile("tempPdf", ".pdf");
+            tempPdfFile.deleteOnExit(); // Ensure the file is deleted when the JVM exits
 
-            try (OutputStream os = new FileOutputStream(pdfFile)) {
+            // Write the PDF bytes to the temporary file
+            try (OutputStream os = new FileOutputStream(tempPdfFile)) {
                 os.write(pdfBytes);
-                System.out.println("PDF file has been successfully created at: " + pdfFile.getAbsolutePath());
+                System.out.println("Temporary PDF file created at: " + tempPdfFile.getAbsolutePath());
             }
-            ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.writeValueAsString(convertor.processFiles(pdfFile, bankName));
 
-        }catch (Exception e) {
+            // Pass the temporary file to processFilesUBS
+            return convertor.processFilesUBS(tempPdfFile);
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
-    @QueryMapping
-    public ArrayList<CosmoFile> sort(@Argument String data) {
 
-        ArrayList<CosmoFile> filesList = null;
-        try {
-
-            ObjectMapper objectMapper = new ObjectMapper();
-         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-            CosmoFile[] cosmoFiles = objectMapper.readValue(data, CosmoFile[].class);
-            for (CosmoFile cosmoFile :  cosmoFiles) {
-                System.out.println(cosmoFile.page);
-            }
-//            convertor.sort((ArrayList<CosmoFile>)cosmoFiles);
-            return null;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
+//    @QueryMapping
+//    public ArrayList<CosmoFile> sort(@Argument String data) {
+//
+//        ArrayList<CosmoFile> filesList = null;
+//        try {
+//
+//            ObjectMapper objectMapper = new ObjectMapper();
+//         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+//
+//            CosmoFile[] cosmoFiles = objectMapper.readValue(data, CosmoFile[].class);
+//            ArrayList<CosmoFile> cosmoFilesList = new ArrayList<>(Arrays.asList(cosmoFiles));
+//            System.out.println(cosmoFilesList);
+//            convertor.sort(cosmoFilesList);
+//            return null;
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return null;
+//        }
+//    }
 
 }

@@ -1,6 +1,6 @@
 package com.example.roller.util;
 
-import com.example.roller.entity.Transaction;
+import com.example.roller.entity.UBS.Transaction;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.rendering.ImageType;
@@ -39,11 +39,17 @@ public class Util {
         Matcher matcher = pattern.matcher(input);
 
         while (matcher.find()) {
-            System.out.println(matcher.group(0));
-            System.out.println(matcher.group(1));
-            System.out.println("sdfsdfsdfsdfsdfz");
            return matcher.group(1);
         }
+
+        String dateRangePattern1 = "(\\d{2}.\\d{2}.\\d{4})";
+        Pattern pattern1 = Pattern.compile(dateRangePattern1);
+        Matcher matcher1 = pattern1.matcher(input);
+
+        while (matcher1.find()) {
+            return matcher1.group(1);
+        }
+
       return null;
     }
 
@@ -135,6 +141,18 @@ public class Util {
             return totalPages;
         } else {
             return null;
+        }
+    }
+    public static String getInterest(String line){
+        String pattern = "[A-Z]{3}\\s+([\\d\\s,]+\\.\\d{2})";
+
+        Pattern regex = Pattern.compile(pattern);
+        Matcher matcher = regex.matcher(line);
+
+        if (matcher.find()) {
+           return matcher.group(1);
+        } else {
+       return null;
         }
     }
     public static String extractValue(String line, String key) {
@@ -244,7 +262,7 @@ public class Util {
 
 
 
-    public static Transaction extractTransactions(String line) {
+    public static Transaction extractTransactionCosmoFile(String line) {
         try {
             String transactionPattern = "(\\d{2}\\.\\d{2}\\.\\d{2}).*?([\\d ]+\\.\\d{2}).*?(\\d{2}\\.\\d{2}\\.\\d{2}).*?([\\d ]+\\.\\d{2})";
 
@@ -253,14 +271,15 @@ public class Util {
 
 
             if (matcher.find()) {
-                String cashEffect = matcher.group(2).replace(" ", "");
-                String valueDate = matcher.group(3).replace(" ", "");
-                String balance = matcher.group(4).replace(" ", "");
+                String cashEffect = matcher.group(2);
+                String valueDate = matcher.group(3);
+                String balance = matcher.group(4).trim();
 
                 String formattedValueDate = formatDate(valueDate);
 
+
                 Transaction transaction = new Transaction();
-                transaction.setAmount(cashEffect);
+                transaction.setAmount(cashEffect.trim());
                 transaction.setValueDate(formattedValueDate);
                 transaction.setBalance(balance);
                 return transaction;
@@ -309,6 +328,21 @@ public class Util {
             return null;
         }
     }
+
+    public static String getIban(String line){
+        String regex = "([A-Z]{2}[0-9]{2}(?:\\s?[0-9A-Z]{4})+)\s?([A-Z])";
+
+        Pattern patternDate = Pattern.compile(regex);
+        Matcher matcherDate = patternDate.matcher(line);
+
+        if (matcherDate.find()){
+            String iban = matcherDate.group(1) +" "+ matcherDate.group(2);
+            return iban;
+        }else {
+            return null;
+        }
+    }
+
 
 
 
@@ -379,9 +413,9 @@ public class Util {
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String amount = matcher.group(2).replace(" ","");
+            String amount = matcher.group(2);
 
-            return amount;
+            return amount.trim();
         }else {
             return null;
         }
@@ -406,7 +440,7 @@ public class Util {
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(line);
         if(matcher.find()){
-            return matcher.group(3);
+            return matcher.group(3).trim();
         }else {
             return null;
         }
@@ -434,7 +468,7 @@ public class Util {
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String amount = matcher.group(3).replace(" ","");
+            String amount = matcher.group(3).trim();
             return amount;
         }else {
            return null;
@@ -450,7 +484,7 @@ public class Util {
 
         if(matcher.find()){
             String date = matcher.group(1);
-            String amount = matcher.group(2).replace(" ","");
+            String amount = matcher.group(2).trim();
             HashMap<String,String> dateAmount = new HashMap<>();
               dateAmount.put("date",date);
               dateAmount.put("amount",amount);
@@ -458,6 +492,42 @@ public class Util {
         }else {
             return null;
         }
+    }
+
+
+
+    public static HashMap<String, String> getConfirmationOfDelivery(String line) {
+        HashMap<String, String> resultMap = new HashMap<>();
+
+        String regex = ".*?Value date\\s*(\\d{2}\\.\\d{2}\\.\\d{4}).*?([A-Z]{3})\\s*([\\d\\s,]+(?:\\.\\d{2})?)";
+
+        String valueDate = null;
+        String currency = null;
+        String amount = null;
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(line);
+
+        if (matcher.find()) {
+             valueDate = matcher.group(1);
+             currency = matcher.group(2);
+             amount = matcher.group(3).trim();
+        }
+
+        String regex1 = ".*?Value date\\s*(\\d{2}\\.\\d{2}\\.\\d{4}).*?([\\d\\s,]+(?:\\.\\d{2})?)";
+
+        Pattern pattern1 = Pattern.compile(regex1);
+        Matcher matcher1 = pattern1.matcher(line);
+
+        if (matcher1.find() && amount == null) {
+            valueDate = matcher1.group(1);
+            amount = matcher1.group(2).trim();
+        }
+
+        resultMap.put("valueDate", valueDate);
+        resultMap.put("currency", currency);
+        resultMap.put("amount", amount);
+        return resultMap;
     }
 
     public static HashMap<String, String> extractDataContractNote(String line) {
@@ -472,7 +542,7 @@ public class Util {
         if (matcher.find()) {
             String valueDate = matcher.group(2); // Capture Value date
             String currency = matcher.group(3); // Capture the currency
-            String amount = matcher.group(4).replaceAll("[\\s,]", ""); // Capture and clean the amount
+            String amount = matcher.group(4).trim(); // Capture and clean the amount
 
             resultMap.put("valueDate", valueDate);
             resultMap.put("currency", currency);
@@ -501,7 +571,7 @@ public class Util {
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String amount = matcher.group(0);
+            String amount = matcher.group(0).trim();
             return amount;
         }else {
             return null;
@@ -627,7 +697,7 @@ public class Util {
         Matcher matcher = pattern.matcher(line);
 
         if(matcher.find()){
-            String amount = matcher.group(4).replace(" ","");
+            String amount = matcher.group(4).trim();
             return amount;
         }else {
             return null;
@@ -656,7 +726,7 @@ public class Util {
             Pattern pattern = Pattern.compile(advicePattern);
             Matcher mather = pattern.matcher(line);
             if (mather.find()) {
-                String amount = mather.group(3).replace(" ", "");
+                String amount = mather.group(3).trim();
                 return amount;
             }
         } catch (Exception e) {

@@ -1,9 +1,6 @@
 package com.example.roller.convertor;
 
-import com.example.roller.entity.AccountStatement;
-import com.example.roller.entity.Advice;
-import com.example.roller.entity.CosmoFile;
-import com.example.roller.entity.Transaction;
+import com.example.roller.entity.UBS.*;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.springframework.stereotype.Component;
@@ -50,15 +47,16 @@ public class Convertor {
     }
 
 
-    public ArrayList<CosmoFile> processFiles(File decodedPdf, String bankName) throws IOException {
+    public AllFilesUBS processFilesUBS(File decodedPdf) throws IOException {
         try {
-            ArrayList<CosmoFile> filesList = new ArrayList<>();
+            ArrayList<AccountStatement> accountStatements = new ArrayList<AccountStatement>();
+            ArrayList<Advice> advices = new ArrayList<Advice>();
+            ArrayList<OutOfSorting> outOfSorting = new ArrayList<OutOfSorting>();
 
 
             List<File> pdfList = extractPagesToSeparatePDFs(decodedPdf);
             int cores = Runtime.getRuntime().availableProcessors();
             ExecutorService executorService = Executors.newFixedThreadPool(cores / 2);
-
 
             List<Future<?>> futures = new ArrayList<>();
 
@@ -77,7 +75,6 @@ public class Convertor {
                         BufferedImage image = convertPDFToImage(pdf);
                         String text = threadTesseract.doOCR(image);
 
-
                         if (isEnglishTextValid(text)) {
 //                            System.out.println("valid");
                         } else {
@@ -94,22 +91,46 @@ public class Convertor {
 
                         String encodedImage = encodeImage(image, "jpg");
                         if (text != null) {
-                            CosmoFile cosmoFile = processTextUBS(text);
-                            cosmoFile.setEncodedImage(encodedImage);
-                            cosmoFile.setInitialIndex(index);
-                            if (cosmoFile.page == null || cosmoFile.maxPages == null){
-                                HashMap pageInfo = getPage(threadTesseract,image);
-                                if (pageInfo != null && pageInfo.get("currentPage") != null){
-                                    cosmoFile.setPage(pageInfo.get("currentPage").toString());
-                                    cosmoFile.setMaxPages(pageInfo.get("totalPages").toString());
+                            AccountStatement accountStatement = getAccountStatementUBS(text);
+                            Advice advice = (accountStatement == null) ? getAdviceUBS(text) : null;
+
+                            if (advice != null) {
+                                advice.setEncodedImage(encodedImage);
+                                advice.setIndex(index);
+
+                                if (advice.getPage() == null || advice.getMaxPage() == null) {
+                                    HashMap pageInfo = getPage(threadTesseract, image);
+                                    if (pageInfo != null && pageInfo.get("currentPage") != null) {
+                                        advice.setPage(pageInfo.get("currentPage").toString());
+                                        advice.setMaxPage(pageInfo.get("totalPages").toString());
+                                    }
                                 }
+                                advices.add(advice);
+                            } else if (accountStatement != null) {
+                                accountStatement.setEncodedImage(encodedImage);
+                                accountStatement.setIndex(index);
+
+                                if (accountStatement.getPage() == null || accountStatement.getMaxPage() == null) {
+                                    HashMap pageInfo = getPage(threadTesseract, image);
+                                    if (pageInfo != null && pageInfo.get("currentPage") != null) {
+                                        accountStatement.setPage(pageInfo.get("currentPage").toString());
+                                        accountStatement.setMaxPage(pageInfo.get("totalPages").toString());
+                                    }
+                                }
+                                accountStatements.add(accountStatement);
+                            }else{
+                                OutOfSorting out = new OutOfSorting();
+                               out.setEncodedImage(encodedImage);
+                                out.setIndex(index);
+                                outOfSorting.add(out);
                             }
-                            filesList.add(cosmoFile);
+
+
                         } else {
-                            CosmoFile cosmoFile = new CosmoFile();
-                            cosmoFile.setEncodedImage(encodedImage);
-                            cosmoFile.setInitialIndex(index);
-                            filesList.add(cosmoFile);
+                            OutOfSorting out = new OutOfSorting();
+                           out.setEncodedImage(encodedImage);
+                            out.setIndex(index);
+                            outOfSorting.add(out);
                         }
 
                     } catch (Exception e) {
@@ -143,19 +164,23 @@ public class Convertor {
 
 //         System.out.println(filesList.size() + "size");
 //
-//            System.out.println(filesList);
-            for (int i = 0; i < filesList.size() - 1; i++) {
-                for (int j = 0; j < filesList.size() - i - 1; j++) {
-                    if (filesList.get(j).getInitialIndex() > filesList.get(j + 1).getInitialIndex()) {
-                        // Swap cosmoList[j] and cosmoList[j + 1]
-                        CosmoFile temp = filesList.get(j);
-                        filesList.set(j, filesList.get(j + 1));
-                        filesList.set(j + 1, temp);
-                    }
-                }
-            }
+////            System.out.println(filesList);
+//            for (int i = 0; i < accountStatements.size() - 1; i++) {
+//                for (int j = 0; j < accountStatements.size() - i - 1; j++) {
+//                    if (accountStatements.get(j).getInitialIndex() > accountStatements.get(j + 1).getInitialIndex()) {
+//                        // Swap cosmoList[j] and cosmoList[j + 1]
+//                        CosmoFile temp = accountStatements.get(j);
+//                        accountStatements.set(j, accountStatements.get(j + 1));
+//                        accountStatements.set(j + 1, temp);
+//                    }
+//                }
+//            }
 
-            return filesList;
+            AllFilesUBS allFilesUBS = new AllFilesUBS();
+            allFilesUBS.setAdvices(advices);
+            allFilesUBS.setAccountStatements(accountStatements);
+            allFilesUBS.setOutOfSorting(outOfSorting);
+            return allFilesUBS;
         } catch (Exception e) {
             System.out.println(e);
             return null;
@@ -167,8 +192,8 @@ public class Convertor {
         int height = image.getHeight();
 
         // Calculate 12% dimensions
-        int cropWidth = (int) (width * 0.12); // 12% of width
-        int cropHeight = (int) (height * 0.12); // 12% of height
+        int cropWidth = (int) (width * 0.15); // 12% of width
+        int cropHeight = (int) (height * 0.15); // 12% of height
 
         // Calculate starting coordinates for the crop
         int cropX = width - cropWidth;  // Start at (total width - 12%)
@@ -194,29 +219,29 @@ public class Convertor {
     }
 
 
-    private CosmoFile getAccountStatement(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private AccountStatement getAccountStatement(String line, List<String> lines, Integer index) {
+        AccountStatement accountStatement = new AccountStatement();
+        accountStatement.setName("Account Statement");
         String period = findDates(line);
         if (period == null) {
             period = findDates(lines.get(index + 1));
         }
-        if (period != null) {
 
-            AccountStatement accountStatement = new AccountStatement();
-            accountStatement.setPeriod(period);
+        if (period != null) {
+            accountStatement.setValueDate(period);
             ArrayList<Transaction> transactions = new ArrayList<>();
             ArrayList<Advice> advices = new ArrayList<>();
 
             for (int j = index; j < lines.size() - index; j++) {
                 String innerLine = lines.get(j);
-                Transaction transaction = extractTransactions(innerLine);
+                Transaction transaction = extractTransactionCosmoFile(innerLine);
                 if (transaction != null) {
                     transactions.add(transaction);
                 }
 
                 if (approxContains(innerLine, "Closing of Service Price", 3) && extractAdviceDate(lines.get(j + 1)) != null) {
                     Advice advice = new Advice();
-                    advice.setType("Closing of Service Price");
+                    advice.setName("Advice");
                     advice.setValueDate(extractAdviceDate(lines.get(j + 1)));
 
                     for (int b = j; b < lines.size(); b++) {
@@ -233,7 +258,7 @@ public class Convertor {
                 }
                 if (approxContains(innerLine, "Interest calculation", 3) && extractAdviceDate(lines.get(j + 1)) != null) {
                     Advice advice = new Advice();
-                    advice.setType("Interest calculation");
+                    advice.setName("Advice");
                     advice.setValueDate(extractAdviceDate(lines.get(j + 1)));
                     for (int b = j; b < lines.size(); b++) {
                         String innerLine2 = lines.get(b);
@@ -249,15 +274,13 @@ public class Convertor {
 
             accountStatement.setTransactions(transactions);
             accountStatement.setAdvices(advices);
-            cosmoFile.appObject = accountStatement;
-            return cosmoFile;
+            return accountStatement;
         }
         return null;
     }
 
 
-    private CosmoFile getCustodyMandateFeeAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getCustodyMandateFeeAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
         String innerLine = lines.get(index + 1);
         String data = extractAdviceCustodyFeeDate(innerLine);
@@ -268,7 +291,7 @@ public class Convertor {
                 if (amount != null) {
                     advice.setAmount(amount);
                     advice.setValueDate(data);
-                    advice.setType("Debit custody fee");
+                    advice.setName("Debit custody fee");
                     break;
                 }
             } else if (approxContains(innerLine2, "Debit mandate fee", 2)) {
@@ -276,19 +299,17 @@ public class Convertor {
                 if (amount != null) {
                     advice.setAmount(amount);
                     advice.setValueDate(data);
-                    advice.setType("Debit mandate fee");
+                    advice.setName("Debit mandate fee");
                     break;
                 }
             }
         }
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
-    private CosmoFile getDebitAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getCreditAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("DebitAdvice");
+        advice.setName("Credit Advice");
         for (int j = index; j < lines.size(); j++) {
             String innerLine = lines.get(j);
 
@@ -306,28 +327,56 @@ public class Convertor {
                 }
             }
         }
-        cosmoFile.appObject = advice;
-        return  cosmoFile;
+        return advice;
+    }
+    private Advice getDebitAdvice(String line, List<String> lines, Integer index) {
+        Advice advice = new Advice();
+        advice.setName("Debit Advice");
+        for (int j = index; j < lines.size(); j++) {
+            String innerLine = lines.get(j);
+
+            if (approxContains(innerLine, "Total amount", 2)) {
+                String amount = extractAdviceDebitAdviceAmount(innerLine);
+                if (amount != null) {
+                    String innerLine2 = lines.get(j + 1);
+                    String data = extractAdviceDebitAdviceDate(innerLine2);
+
+                    if (data != null) {
+                        advice.setAmount(amount);
+                        advice.setValueDate(data);
+                        break;
+                    }
+                }
+            }
+        }
+        return advice;
     }
 
-    private CosmoFile getTotalInterestAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getTotalInterestAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("totalInterestAdvice");
+        advice.setName("Interest");
         String amount = extractAdviceTotalInterestAmount(line);
         if (amount != null) {
             advice.setAmount(amount);
         }
-        cosmoFile.notRequired.add("valueDate");
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
 
-    private CosmoFile getConfirmationAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+
+    private Advice getConfirmationAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("Confirmation");
+
+
+        if (lines.get(index + 1).contains("Produced on")) {
+            advice.setConfirmationNumber(lines.get(index - 2));
+        }
+        if (lines.get(index + 2).contains("Produced on")) {
+            advice.setConfirmationNumber(lines.get(index + 4));
+
+        }
+
+        advice.setName("Confirmation");
         for (int j = index; j < lines.size(); j++) {
             String innerLine = lines.get(j);
             if (approxContains(innerLine, "Settlement Date", 2) && advice.getValueDate() == null) {
@@ -345,15 +394,13 @@ public class Convertor {
 
 
         }
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
 
-    private CosmoFile getConfirmationOfAmendmentAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getConfirmationOfAmendmentAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("ConfirmationOfAmendment");
+        advice.setName("Confirmation Of Amendment");
         for (int j = index; j < lines.size(); j++) {
             String innerLine = lines.get(j);
 
@@ -371,19 +418,21 @@ public class Convertor {
             }
 
         }
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
-    private CosmoFile getContractNoteAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getConfirmationDeliveryAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("ContractNote");
+        if (approxContains(line,"Confirmation of outgoing delivery",1)){
+            advice.setName("Confirmation of outgoing delivery");
+        }else{
+            advice.setName("Confirmation of incoming delivery");
+        }
+
         for (int j = index; j < lines.size(); j++) {
             String innerLine = lines.get(j);
-            if (approxContains(innerLine, "In favour of account", 2) || approxContains(innerLine, "To the debit of account", 2)) {
-                HashMap data = extractDataContractNote(innerLine);
-
+            if (approxContains(innerLine, "Value date", 2)) {
+                HashMap data = getConfirmationOfDelivery(innerLine);
                 String valueDate = (String) data.get("valueDate");
                 String amount = (String) data.get("amount");
                 advice.setValueDate(valueDate);
@@ -391,14 +440,32 @@ public class Convertor {
                 break;
             }
         }
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
-    private CosmoFile getAdviceStatementAdvice(String line, List<String> lines, Integer index) {
-        CosmoFile cosmoFile = new CosmoFile();
+    private Advice getContractNoteAdvice(String line, List<String> lines, Integer index) {
         Advice advice = new Advice();
-        advice.setType("AdviceStatement");
+        advice.setName("Contract Note");
+        for (int j = index; j < lines.size(); j++) {
+            String innerLine = lines.get(j);
+            if (advice.getInterest() == null && approxContains(innerLine, "Interest from", 2)){
+                advice.setInterest(getInterest(innerLine));
+            }
+            if (approxContains(innerLine, "In favour of account", 2) || approxContains(innerLine, "To the debit of account", 2)) {
+                HashMap data = extractDataContractNote(innerLine);
+                String valueDate = (String) data.get("valueDate");
+                String amount = (String) data.get("amount");
+                advice.setValueDate(valueDate);
+                advice.setAmount(amount);
+                break;
+            }
+        }
+        return advice;
+    }
+
+    private Advice getAdviceStatementAdvice(String line, List<String> lines, Integer index) {
+        Advice advice = new Advice();
+        advice.setName("Advice/Statement");
         for (int j = index; j < lines.size(); j++) {
             String innerLine = lines.get(j);
             if (approxContains(innerLine, "CREDIT ACCOUNT", 2) || approxContains(innerLine, "To the debit of account", 2)) {
@@ -413,19 +480,22 @@ public class Convertor {
             }
 
         }
-        cosmoFile.appObject = advice;
-        return cosmoFile;
+        return advice;
     }
 
-    private CosmoFile processTextUBS(String text) {
+    private AccountStatement getAccountStatementUBS(String text) {
         try {
             List<String> lines = Arrays.stream(text.split("\\n")).toList();
             ArrayList<String> arrayList = new ArrayList<>(lines);
-            CosmoFile cosmoFile = new CosmoFile();
+
             String currentPage = null;
             String maxPage = null;
             String clientNo = null;
             String producedOn = null;
+            HashMap info = null;
+            String iban = null;
+
+            AccountStatement accountStatement = null;
 
 
             for (int i = 0; i < arrayList.size(); i++) {
@@ -435,51 +505,120 @@ public class Convertor {
                 if (clientNo == null) {
                     clientNo = getClientNo(line);
                 }
+                if (iban == null) {
+                    iban = getIban(line);
+                }
 
                 if (producedOn == null) {
                     producedOn = extractProducedOn(line);
                 }
 
-                HashMap info = getPageInfo(line);
-                if (info != null) {
-                    currentPage = (String) info.get("currentPage");
-                    maxPage = (String) info.get("totalPages");
+                if (info == null) {
+                    info = getPageInfo(line);
+                    if (currentPage == null && info != null){
+                        currentPage = (String) info.get("currentPage");
+                        maxPage = (String) info.get("totalPages");
+                    }
                 }
 
 
-                if (cosmoFile.appObject == null){
-                    if (approxContains(line, "Account Statement", 2)) {
-                        cosmoFile = getAccountStatement(line, lines, i);
-                    }
-                    else if (approxContains(line, "Custody fee", 2) && extractAdviceCustodyFeeDate(arrayList.get(i + 1)) != null || approxContains(line, "Mandate fee", 2) && extractAdviceCustodyFeeDate(arrayList.get(i + 1)) != null) {
-                        cosmoFile = getCustodyMandateFeeAdvice(line, lines, i);
-                    }
-                    else if (approxContains(line, "Debit Advice", 2) && extractDateAdvice(line) != null) {
-                        cosmoFile = getDebitAdvice(line, lines, i);
-                    }
-                    else if (approxContains(line, "Total interest", 2) && producedOn != null) {
-                        cosmoFile = getTotalInterestAdvice(line, lines, i);
-                    }
-                    else if (line.equals("Confirmation") && arrayList.get(i + 1).contains("Produced on")) {
-                        cosmoFile = getConfirmationAdvice(line, lines, i);
-                    }
-                    else if (approxContains(line, "Confirmation of Amendment", 2) && approxContains(arrayList.get(i + 1), "Produced on", 2)) {
-                        cosmoFile = getConfirmationOfAmendmentAdvice(line, lines, i);
-                    }
-                    else if (approxContains(line, "Contract note", 2) && approxContains(line, "Produced on", 2)) {
-                        cosmoFile = getContractNoteAdvice(line, lines, i);
-                    }
-                    else if (containsAdviceStatementText(line) && approxContains(line, "Produced on", 2)) {
-                        cosmoFile = getAdviceStatementAdvice(line, lines, i);
-                    }
+                if (approxContains(line, "Account Statement", 2) && accountStatement == null) {
+                    accountStatement = getAccountStatement(line, lines, i);
                 }
             }
-            cosmoFile.setPage(currentPage);
-            cosmoFile.setMaxPages(maxPage);
-            cosmoFile.setClientNo(clientNo);
-            cosmoFile.setProducedOn(producedOn);
 
-            return cosmoFile;
+            if (accountStatement != null){
+
+                accountStatement.setPage(currentPage);
+                accountStatement.setMaxPage(maxPage);
+                accountStatement.setClientNo(clientNo);
+                accountStatement.setProducedOn(producedOn);
+                accountStatement.setIban(iban);
+                return accountStatement;
+            }
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    private Advice getAdviceUBS(String text) {
+        try {
+            List<String> lines = Arrays.stream(text.split("\\n")).toList();
+            ArrayList<String> arrayList = new ArrayList<>(lines);
+            String currentPage = null;
+            String maxPage = null;
+            String clientNo = null;
+            String producedOn = null;
+
+
+            Advice advice = null;
+
+
+            for (int i = 0; i < arrayList.size(); i++) {
+                String line = arrayList.get(i).replaceAll("[^a-zA-Z0-9 ,/.'-]", "");
+
+                if (clientNo == null) {
+                    clientNo = getClientNo(line);
+                }
+
+                if (producedOn == null) {
+                    producedOn = extractProducedOn(line);
+                }
+
+                HashMap info = null;
+                if (info == null) {
+                    info = getPageInfo(line);
+                    if (info != null){
+                        currentPage = (String) info.get("currentPage");
+                        maxPage = (String) info.get("totalPages");
+                    }
+                }
+
+                if (advice == null){
+                        if (approxContains(line, "Custody fee", 2) && extractAdviceCustodyFeeDate(arrayList.get(i + 1)) != null || approxContains(line, "Mandate fee", 2) && extractAdviceCustodyFeeDate(arrayList.get(i + 1)) != null) {
+                            advice = getCustodyMandateFeeAdvice(line, lines, i);
+                        }
+                        else if (approxContains(line, "Debit Advice", 1) && extractDateAdvice(line) != null) {
+                            advice = getDebitAdvice(line, lines, i);
+                        }
+                        else if (approxContains(line, "Credit Advice", 1) && extractDateAdvice(line) != null) {
+                            advice = getCreditAdvice(line, lines, i);
+                        }
+                        else if (approxContains(line, "Total interest", 1) && producedOn != null) {
+                            advice = getTotalInterestAdvice(line, lines, i);
+                        }
+                        else if (line.equals("Confirmation") && (arrayList.get(i + 1).contains("Produced on")  || arrayList.get(i + 2).contains("Produced on")) ) {
+                            advice = getConfirmationAdvice(line, lines, i);
+                        }
+                        else if (approxContains(line, "Confirmation of Amendment", 2) && approxContains(arrayList.get(i + 1), "Produced on", 2)) {
+                            advice = getConfirmationOfAmendmentAdvice(line, lines, i);
+                        }
+                        else if (approxContains(line, "Contract note", 2) && approxContains(line, "Produced on", 2)) {
+                            advice = getContractNoteAdvice(line, lines, i);
+                        }
+                        else if ((approxContains(line, "Confirmation of outgoing delivery", 2)  || approxContains(line, "Confirmation of incoming delivery", 2))
+                                && approxContains(line, "Produced on", 2)) {
+                            advice = getConfirmationDeliveryAdvice(line, lines, i);
+                        }
+                        else if (containsAdviceStatementText(line) && approxContains(line, "Produced on", 2)) {
+                            advice = getAdviceStatementAdvice(line, lines, i);
+
+                        }
+
+                    }
+
+            }
+            if (advice != null){
+
+                advice.setPage(currentPage);
+                advice.setMaxPage(maxPage);
+                advice.setClientNo(clientNo);
+                advice.setProducedOn(producedOn);
+                return advice;
+            }
+
+            return null;
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -531,71 +670,41 @@ public class Convertor {
         }
     }
 
-    public ArrayList<CosmoFile> sort(ArrayList<CosmoFile> filesList) {
-        try {
-            ArrayList<CosmoFile> sorted = new ArrayList<CosmoFile>();
-
-            ArrayList<ArrayList<AccountStatement>> accountStatementsGroups = new ArrayList<>();
-            for (int i = 0; i < filesList.size(); i++) {
-                if (filesList.get(i) instanceof AccountStatement) {
-                    AccountStatement accountStatement = (AccountStatement) filesList.get(i);
-                    if (accountStatementsGroups.isEmpty()) {
-                        ArrayList<AccountStatement> group = new ArrayList<AccountStatement>();
-                        group.add(accountStatement);
-                        accountStatementsGroups.add(group);
-                    } else {
-                        Boolean foundGroup = false;
-                        for (int j = 0; j < accountStatementsGroups.size(); j++) {
-                            ArrayList<AccountStatement> group = accountStatementsGroups.get(j);
-                            AccountStatement groupedAccountStatement = group.get(0);
-                            if (accountStatement.getPeriod().replaceAll("\\D", "").equals(groupedAccountStatement.getPeriod().replaceAll("\\D", ""))) {
-                                accountStatementsGroups.get(j).add(accountStatement);
-                                foundGroup = true;
-                                break;
-                            }
-                            ;
-                        }
-                        if (!foundGroup) {
-                            ArrayList<AccountStatement> group = new ArrayList<AccountStatement>();
-                            group.add(accountStatement);
-                            accountStatementsGroups.add(group);
-                        }
-                    }
-
-                }
-            }
-            accountStatementsGroups.forEach((group -> {
-                group.forEach((accountStatement -> {
-                    ArrayList<Transaction> transactions = accountStatement.getTransactions();
-                    transactions.forEach((transaction -> {
-                        for (CosmoFile cosmoFile : filesList) {
-                            ;
-                            if (cosmoFile instanceof Advice advice) {
-                                if (advice.getAmount() == null || advice.getValueDate() == null) {
-                                    advice.setStatus(false);
-                                } else if (transaction.getAmount() == null || transaction.getValueDate() == null) {
-                                    transaction.setStatus(false);
-                                }
-                                if (advice.getAmount() != null && advice.getValueDate() != null && transaction.getAmount() != null && transaction.getValueDate() != null) {
-                                    if (advice.getAmount().replaceAll("\\D", "").equals(transaction.getAmount().replaceAll("\\D", "")) && advice.getValueDate().replaceAll("\\D", "").equals(transaction.getValueDate().replaceAll("\\D", ""))) {
-                                        sorted.add(advice);
-                                    } else {
-//                                      System.out.println(advice);
-//                                      System.out.println(transaction);
-                                    }
-                                }
-
-                            }
-
-                        }
-                    }));
-                }));
-            }));
-            return null;
-        } catch (Exception e) {
-            System.out.println(e + "error");
-            return null;
-        }
-    }
+//    public ArrayList<CosmoFile> findAdvices(AccountStatement accountStatement,ArrayList<CosmoFile> filesList){
+//        ArrayList<CosmoFile> advices = new ArrayList<>();
+//        ArrayList<CosmoFile> transactions = accountStatement.getTransactions();
+//        for (int i = 0; i < transactions.size(); i++) {
+//            CosmoFile transactionCosmoFile = transactions.get(i);
+//            Transaction transaction = (Transaction) transactionCosmoFile.appObject;
+//            for (int j = 0; j < filesList.size(); j++) {
+//                if (!filesList.get(i).name.equals("Account Statement")){
+//                    CosmoFile adviceCosmoFile = filesList.get(i);
+//                    Advice advice = (Advice) adviceCosmoFile.appObject;
+//                    if (advice.getAmount().equals(transaction.getAmount()) && adviceCosmoFile.getValueDate().equals(transactionCosmoFile.getValueDate())){
+//                        advices.add(adviceCosmoFile);
+//                    }
+//
+//                }
+//
+//            }
+//        }
+//        return advices;
+//    }
+//
+//    public ArrayList<CosmoFile> sort(ArrayList<CosmoFile> filesList) {
+//        ArrayList<ArrayList<CosmoFile>> bundles = new ArrayList<>();
+//
+//        for (int i = 0; i < filesList.size(); i++) {
+//            CosmoFile cosmoFile = filesList.get(i);
+//            System.out.println(cosmoFile.getAppObject());
+//            if (cosmoFile.appObject instanceof AccountStatement){
+//                System.out.println("11");
+//                AccountStatement accountStatement = (AccountStatement) cosmoFile.getAppObject();
+//
+//            }
+//        }
+//
+//        return null;
+//    }
 
 }

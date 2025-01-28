@@ -1,14 +1,8 @@
-type Transaction {
-    cashEffect: String
-    valueDate:  String
-    balance:    String
-    TitleId:    String
-    Status :    String
-}
 
 type Query {
-    getAllFiles(pdf: String, bankName: String): String
-    sort(data: String): String
+    getAllFilesUBS(pdf: String): AllFilesUBS
+    sortUBS(data: String): String
+
 }
 
 

@@ -1,4 +1,4 @@
-package com.example.roller.entity;
+package com.example.roller.entity.UBS;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,10 +11,10 @@ import javax.persistence.Id;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Sorted {
-    private String page;
-    private String maxPages;
-    private String type;
-    private String clientNo;
-    private String Status;
+public class Transaction {
+    protected String amount;
+    private String balance;
+    private String valueDate;
+    private Number index;
+    private String name = "Transaction";
 }

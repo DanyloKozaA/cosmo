@@ -1,0 +1,48 @@
+type AllFilesUBS{
+    accountStatements:[AccountStatement]
+    advices:[Advice]
+    outOfSorting: [OutOfSorting]
+
+}
+
+type OutOfSorting{
+    encodedImage: String
+    index: Int
+}
+
+
+type AccountStatement{
+    valueDate: String
+    active: Boolean
+    transactions: [Transaction]
+    advices: [Advice]
+    name: String
+    producedOn: String
+    encodedImage: String
+    iban: String
+    index: Int
+    page: Int
+    maxPage: Int
+}
+
+type Advice{
+    amount: String
+    valueDate: String
+    active: Boolean
+    producedOn: String
+    name: String
+    encodedImage: String
+    index: Int
+    page: Int
+    maxPage: Int
+    confirmationNumber: String
+    interest: String
+}
+
+type Transaction{
+    amount: String
+    valueDate: String
+    index: Int
+    balance: String
+    name: String
+}
